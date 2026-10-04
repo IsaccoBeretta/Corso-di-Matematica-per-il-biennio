@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il mondo dei blocchi — semantica della logica del prim'ordine</title>
+<style>
+  :root{
+    --bg:#E7EAE6;
+    --surface:#FCFCFB;
+    --ink:#1A2028;
+    --ink-soft:#5A6470;
+    --rule:#C0C7BE;
+    --rule-soft:#DBE0D8;
+    --board:#F4F6F2;
+    --rosso:#C6372F;
+    --verde:#2E7D46;
+    --blu:#2A5BA8;
+    --serif:"Palatino Linotype","Book Antiqua",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.5;padding:24px 20px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  header{margin-bottom:18px;max-width:62ch}
+  h1{font-family:var(--serif);font-size:30px;font-weight:normal;
+     letter-spacing:-.01em;margin:0 0 6px}
+  header p{margin:0;color:var(--ink-soft);font-size:14px}
+
+  .modes{display:flex;gap:0;margin:18px 0 20px;border:1px solid var(--rule);width:max-content}
+  .modes button{border:none;padding:8px 20px;font-size:14px;background:var(--surface)}
+  .modes button + button{border-left:1px solid var(--rule)}
+  .modes button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+  .cols{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:start}
+  @media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--rule);padding:16px}
+  .panel + .panel{margin-top:16px}
+  .panel h2{font-family:var(--serif);font-size:17px;font-weight:normal;margin:0 0 12px;
+            padding-bottom:8px;border-bottom:1px solid var(--rule-soft)}
+
+  #board{display:block;width:100%;height:auto;background:var(--board);border:1px solid var(--rule)}
+  .boardhint{margin:10px 0 0;font-size:13px;color:var(--ink-soft)}
+
+  .attr{display:flex;align-items:baseline;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .attr > span:first-child{font-family:var(--serif);font-size:14px;color:var(--ink-soft);min-width:86px}
+
+  button{font-family:var(--sans);font-size:13px;background:var(--surface);color:var(--ink);
+         border:1px solid var(--rule);padding:4px 10px;cursor:pointer}
+  button:hover:not(:disabled){background:var(--bg)}
+  button:disabled{opacity:.45;cursor:default}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.wide{padding:7px 14px;font-size:14px}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.primary:hover:not(:disabled){background:#2B3440}
+  .muted{color:var(--ink-soft)}
+  .empty{font-size:13px;color:var(--ink-soft);font-style:italic;margin:0}
+  .rowbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  #src{width:100%;font-family:var(--serif);font-size:17px;padding:9px 10px;
+       border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+  #src:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  .keys{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+  .keys button{font-family:var(--serif);font-size:16px;min-width:32px;padding:2px 8px}
+  .echo{font-family:var(--serif);font-size:16px;min-height:24px;margin:8px 0 12px;
+        padding:6px 0;border-top:1px solid var(--rule-soft);color:var(--ink-soft)}
+  .echo.err{color:var(--rosso)}
+
+  ol.flist{list-style:none;margin:0;padding:0}
+  ol.flist > li{border-top:1px solid var(--rule-soft);padding:10px 0}
+  ol.flist > li:first-child{border-top:none}
+  .fhead{display:flex;gap:10px;align-items:baseline}
+  .fnum{font-family:var(--serif);font-size:14px;color:var(--ink-soft);min-width:1.6em}
+  .ftext{font-family:var(--serif);font-size:16px;flex:1;min-width:0;word-wrap:break-word}
+  .chip{font-family:var(--sans);font-size:11px;letter-spacing:.02em;padding:2px 7px;
+        white-space:nowrap;border:1px solid var(--ink)}
+  .chip.v{background:var(--ink);color:#fff}
+  .chip.f{background:transparent;color:var(--ink)}
+  .fbtns{display:flex;gap:4px}
+  .fbtns button{font-size:12px;padding:2px 7px}
+
+  .why{margin:10px 0 2px 1.6em;font-size:14px}
+  .why ul{list-style:none;margin:0;padding:0 0 0 18px;border-left:1px solid var(--rule)}
+  .why li{padding:4px 0 4px 10px}
+  .why .node{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .why .f{font-family:var(--serif);font-size:15px}
+  .why .mark{font-family:var(--serif);font-size:14px;min-width:1.1em;text-align:center}
+  .why .mark.t{color:var(--ink);font-weight:bold}
+  .why .mark.x{color:var(--ink-soft)}
+  .why .note{font-size:13px;color:var(--ink-soft);font-style:italic}
+  .why .obj{font-size:13px;color:var(--ink-soft)}
+
+  /* ---------- gioco ---------- */
+  .levels{display:flex;flex-wrap:wrap;gap:4px}
+  .levels button{min-width:34px;font-family:var(--serif);font-size:15px}
+  .levels button.done::after{content:" ✓";font-size:11px}
+
+  .claim{font-family:var(--serif);font-size:22px;line-height:1.35;margin:0 0 4px;
+         word-wrap:break-word}
+  .teaches{font-size:13.5px;color:var(--ink-soft);margin:0 0 16px}
+  .teaches strong{color:var(--ink);font-weight:600}
+
+  .stage{border:1px solid var(--rule);background:var(--bg);padding:14px;margin-bottom:14px}
+  .stage .now{font-family:var(--serif);font-size:18px;margin:0 0 4px;word-wrap:break-word}
+  .stage .role{font-size:13px;color:var(--ink-soft);margin:0 0 12px}
+  .stage .ask{font-size:14px;margin:0 0 10px}
+  .choices{display:flex;flex-wrap:wrap;gap:6px}
+  .choices button{font-size:13.5px;padding:6px 11px}
+  .choices button .d{color:var(--ink-soft);font-size:12px}
+
+  ol.log{margin:0;padding-left:1.5em;font-size:13.5px;color:var(--ink-soft)}
+  ol.log li{padding:2px 0}
+  ol.log .me{color:var(--ink)}
+  ol.log span.ff{font-family:var(--serif);font-size:14px;color:var(--ink)}
+
+  .outcome{border:1px solid var(--ink);padding:14px;margin-bottom:14px}
+  .outcome h3{font-family:var(--serif);font-size:20px;font-weight:normal;margin:0 0 6px}
+  .outcome p{margin:0 0 8px;font-size:14px}
+  .outcome p:last-child{margin-bottom:0}
+  .outcome.lose{background:var(--bg)}
+  .outcome.win{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .outcome.win .muted2{color:#C9CFD6}
+
+  details.sig{margin-top:16px;background:var(--surface);border:1px solid var(--rule)}
+  details.sig > summary{padding:12px 16px;cursor:pointer;font-family:var(--serif);font-size:16px}
+  .sigbody{padding:0 16px 16px}
+  table.sig{border-collapse:collapse;width:100%;font-size:13.5px}
+  table.sig th{text-align:left;font-weight:normal;font-family:var(--serif);font-size:14px;
+               color:var(--ink-soft);padding:10px 10px 6px 0;border-bottom:1px solid var(--rule)}
+  table.sig td{padding:4px 10px 4px 0;vertical-align:top;border-bottom:1px solid var(--rule-soft)}
+  table.sig td:first-child{font-family:var(--serif);white-space:nowrap;width:1%}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Il mondo dei blocchi</h1>
+  <p>La semantica della logica del prim'ordine, guardando un disegno.</p>
+</header>
+
+<div class="modes" role="group" aria-label="Modalità">
+  <button id="mExplore" aria-pressed="true">Esplora</button>
+  <button id="mGame" aria-pressed="false">Gioca</button>
+</div>
+
+<!-- ===================== ESPLORA ===================== -->
+<div id="viewExplore">
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Il mondo</h2>
+        <svg id="board" viewBox="0 0 420 420" role="img" aria-label="Griglia con i blocchi"></svg>
+        <p class="boardhint" id="hint"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Blocchi</h2>
+        <div class="rowbtns" style="margin-bottom:14px">
+          <button class="primary" id="addBlock">Crea un blocco</button>
+          <button id="delBlock">Togli il selezionato</button>
+        </div>
+        <div id="inspector"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Mondi di esempio</h2>
+        <div class="rowbtns" id="presets"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Scrivi una formula</h2>
+        <input id="src" spellcheck="false" autocomplete="off"
+               placeholder="∀x (Quadrato(x) → Grande(x))">
+        <div class="keys" id="keys"></div>
+        <div class="echo" id="echo"></div>
+        <div class="rowbtns">
+          <button class="wide primary" id="add">Aggiungi alla lista</button>
+          <span class="muted" style="font-size:13px">Variabili: x y z u v w · Nomi: a b c d e f</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Formule</h2>
+        <ol class="flist" id="flist"></ol>
+        <div class="rowbtns" style="margin-top:12px">
+          <button id="clear">Svuota la lista</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== GIOCA ===================== -->
+<div id="viewGame" class="hidden">
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Il mondo</h2>
+        <svg id="gboard" viewBox="0 0 420 420" role="img" aria-label="Griglia con i blocchi"></svg>
+        <p class="boardhint">In partita il mondo non si modifica: leggilo.</p>
+      </div>
+      <div class="panel">
+        <h2>Livelli</h2>
+        <div class="levels" id="levels"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2 id="gtitle">Livello</h2>
+        <p class="claim" id="gclaim"></p>
+        <p class="teaches" id="gteaches"></p>
+        <div id="gstage"></div>
+        <div id="gafter"></div>
+        <div id="glogbox"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<details class="sig">
+  <summary>La segnatura: quali simboli puoi usare</summary>
+  <div class="sigbody" id="sigbody"></div>
+</details>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. MONDO E VOCABOLARIO
+   ============================================================ */
+
+const N = 6;
+const SHAPES = ["quadrato","cerchio","triangolo"];
+const SIZES  = ["piccolo","medio","grande"];
+const COLORS = ["rosso","verde","blu"];
+const NAMES  = ["a","b","c","d","e","f"];
+const VARS   = ["x","y","z","u","v","w"];
+
+let world = [];
+let selected = -1;
+
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function descr(b){ return "il " + b.shape + " " + b.color + " " + b.size; }
+function objLabel(i){ const b = world[i]; return b && b.name ? b.name : "o" + (i+1); }
+function objFull(i){ return world[i] ? objLabel(i) + " — " + descr(world[i]) : "?"; }
+
+function B(shape,size,color,col,row,name){
+  return {shape,size,color,col,row,name:name||null};
+}
+
+/* ============================================================
+   2. PREDICATI
+   ============================================================ */
+
+const sizeRank = {piccolo:0, medio:1, grande:2};
+
+function between(x,y,z){
+  const dc = z.col-y.col, dr = z.row-y.row;
+  if(!(dc===0 || dr===0 || Math.abs(dc)===Math.abs(dr))) return false;
+  const ec = x.col-y.col, er = x.row-y.row;
+  if(dc*er - dr*ec !== 0) return false;
+  const dot = ec*dc + er*dr;
+  if(dot <= 0) return false;
+  if(dot >= dc*dc + dr*dr) return false;
+  return true;
+}
+
+const PREDS = {
+  Quadrato:{n:1,f:(a)=>a.shape==="quadrato", d:"x è un quadrato"},
+  Cerchio:{n:1,f:(a)=>a.shape==="cerchio", d:"x è un cerchio"},
+  Triangolo:{n:1,f:(a)=>a.shape==="triangolo", d:"x è un triangolo"},
+  Piccolo:{n:1,f:(a)=>a.size==="piccolo", d:"x è piccolo"},
+  Medio:{n:1,f:(a)=>a.size==="medio", d:"x è medio"},
+  Grande:{n:1,f:(a)=>a.size==="grande", d:"x è grande"},
+  Rosso:{n:1,f:(a)=>a.color==="rosso", d:"x è rosso"},
+  Verde:{n:1,f:(a)=>a.color==="verde", d:"x è verde"},
+  Blu:{n:1,f:(a)=>a.color==="blu", d:"x è blu"},
+  StessaForma:{n:2,f:(a,b)=>a.shape===b.shape, d:"x e y hanno la stessa forma"},
+  StessaDimensione:{n:2,f:(a,b)=>a.size===b.size, d:"x e y hanno la stessa dimensione"},
+  StessoColore:{n:2,f:(a,b)=>a.color===b.color, d:"x e y hanno lo stesso colore"},
+  PiuGrande:{n:2,f:(a,b)=>sizeRank[a.size]>sizeRank[b.size], d:"x è più grande di y"},
+  PiuPiccolo:{n:2,f:(a,b)=>sizeRank[a.size]<sizeRank[b.size], d:"x è più piccolo di y"},
+  ASinistraDi:{n:2,f:(a,b)=>a.col<b.col, d:"x è a sinistra di y"},
+  ADestraDi:{n:2,f:(a,b)=>a.col>b.col, d:"x è a destra di y"},
+  DavantiA:{n:2,f:(a,b)=>a.row>b.row, d:"x è davanti a y"},
+  DietroA:{n:2,f:(a,b)=>a.row<b.row, d:"x è dietro a y"},
+  StessaRiga:{n:2,f:(a,b)=>a.row===b.row, d:"x e y sono sulla stessa riga"},
+  StessaColonna:{n:2,f:(a,b)=>a.col===b.col, d:"x e y sono sulla stessa colonna"},
+  Adiacente:{n:2,f:(a,b)=>Math.abs(a.col-b.col)+Math.abs(a.row-b.row)===1,
+             d:"x e y sono in caselle confinanti"},
+  InMezzo:{n:3,f:(a,b,c)=>between(a,b,c), d:"x sta in mezzo fra y e z"}
+};
+
+/* ============================================================
+   3. ANALISI SINTATTICA
+   ============================================================ */
+
+const S = {ALL:"∀", EX:"∃", NOT:"¬", AND:"∧", OR:"∨", IMP:"→", IFF:"↔", BOT:"⊥"};
+
+function tokenize(s){
+  const t = []; let i = 0;
+  const multi = [
+    ["<->",S.IFF],["<=>",S.IFF],["\\iff",S.IFF],
+    ["->",S.IMP],["=>",S.IMP],["\\to",S.IMP],
+    ["!=","≠"],["/=","≠"],
+    ["\\forall",S.ALL],["\\exists",S.EX],
+    ["\\neg",S.NOT],["\\wedge",S.AND],["\\vee",S.OR],["\\bot",S.BOT],
+    ["/\\",S.AND],["\\/",S.OR]
+  ];
+  outer:
+  while(i < s.length){
+    const c = s[i];
+    if(/\s/.test(c)){ i++; continue; }
+    for(const [a,b] of multi)
+      if(s.startsWith(a,i)){ t.push({k:b}); i += a.length; continue outer; }
+    if("∀@".includes(c)){ t.push({k:S.ALL}); i++; continue; }
+    if("∃#".includes(c)){ t.push({k:S.EX}); i++; continue; }
+    if("¬~!".includes(c)){ t.push({k:S.NOT}); i++; continue; }
+    if("∧&".includes(c)){ t.push({k:S.AND}); i++; continue; }
+    if("∨|".includes(c)){ t.push({k:S.OR}); i++; continue; }
+    if(c==="→"){ t.push({k:S.IMP}); i++; continue; }
+    if(c==="↔"){ t.push({k:S.IFF}); i++; continue; }
+    if(c==="⊥"){ t.push({k:S.BOT}); i++; continue; }
+    if("(),.=≠".includes(c)){ t.push({k:c}); i++; continue; }
+    if(/[A-Za-z_]/.test(c)){
+      let j = i;
+      while(j < s.length && /[A-Za-z0-9_]/.test(s[j])) j++;
+      t.push({k:"id", v:s.slice(i,j)}); i = j; continue;
+    }
+    throw new Error("Simbolo non riconosciuto: «" + c + "»");
+  }
+  return t;
+}
+
+function parse(str){
+  const t = tokenize(str);
+  let p = 0;
+  const peek = () => (p < t.length ? t[p] : {k:"eof"});
+  const eat = (k) => {
+    if(peek().k !== k) throw new Error(peek().k === "eof"
+      ? "La formula finisce troppo presto: manca «" + k + "»"
+      : "Atteso «" + k + "», trovato «" + (peek().v || peek().k) + "»");
+    return t[p++];
+  };
+
+  function term(){
+    const tk = peek();
+    if(tk.k !== "id"){
+      if(tk.k === "eof") throw new Error("La formula finisce troppo presto: manca un nome o una variabile");
+      throw new Error("Atteso un nome o una variabile, trovato «" + (tk.v||tk.k) + "»");
+    }
+    p++;
+    if(VARS.includes(tk.v))  return {t:"var",  n:tk.v};
+    if(NAMES.includes(tk.v)) return {t:"name", n:tk.v};
+    throw new Error("«" + tk.v + "» non è né una variabile (x y z u v w) né un nome (a b c d e f)");
+  }
+
+  function atom(){
+    const tk = peek();
+    if(tk.k === "("){ p++; const f = iff(); eat(")"); return f; }
+    if(tk.k === S.BOT){ p++; return {t:"bot"}; }
+    if(tk.k === "id" && /^[A-Z]/.test(tk.v)){
+      const name = tk.v; p++;
+      const spec = PREDS[name];
+      if(!spec) throw new Error("Predicato sconosciuto: «" + name + "»");
+      eat("(");
+      const args = [term()];
+      while(peek().k === ","){ p++; args.push(term()); }
+      eat(")");
+      if(args.length !== spec.n)
+        throw new Error(name + " vuole " + spec.n +
+          (spec.n===1 ? " argomento" : " argomenti") + ", ne ha " + args.length);
+      return {t:"pred", n:name, args};
+    }
+    const a = term();
+    if(peek().k === "="){ p++; return {t:"eq", a, b:term()}; }
+    if(peek().k === "≠"){ p++; return {t:"not", a:{t:"eq", a, b:term()}}; }
+    throw new Error("Atteso «=» o «≠» dopo «" + a.n + "»");
+  }
+
+  function unary(){
+    const tk = peek();
+    if(tk.k === S.NOT){ p++; return {t:"not", a:unary()}; }
+    if(tk.k === S.ALL || tk.k === S.EX){
+      p++;
+      const vt = peek();
+      if(vt.k !== "id" || !VARS.includes(vt.v))
+        throw new Error("Dopo un quantificatore serve una variabile (x y z u v w)");
+      p++;
+      if(peek().k === ".") p++;
+      return {t: tk.k === S.ALL ? "all" : "ex", v:vt.v, a:iff()};
+    }
+    return atom();
+  }
+  function and(){ let l=unary(); while(peek().k===S.AND){ p++; l={t:"and",a:l,b:unary()}; } return l; }
+  function or(){  let l=and();   while(peek().k===S.OR ){ p++; l={t:"or", a:l,b:and()};   } return l; }
+  function imp(){ const l=or();  if(peek().k===S.IMP){ p++; return {t:"imp",a:l,b:imp()}; } return l; }
+  function iff(){ let l=imp();   while(peek().k===S.IFF){ p++; l={t:"iff",a:l,b:imp()}; } return l; }
+
+  const f = iff();
+  if(p < t.length) throw new Error("Simboli in eccesso a partire da «" + (peek().v||peek().k) + "»");
+  checkClosed(f, []);
+  return f;
+}
+
+function checkClosed(f, bound){
+  const chk = (a) => {
+    if(a.t === "var" && !bound.includes(a.n))
+      throw new Error("La variabile «" + a.n + "» non è legata ad alcun quantificatore");
+  };
+  switch(f.t){
+    case "bot": return;
+    case "pred": f.args.forEach(chk); return;
+    case "eq": chk(f.a); chk(f.b); return;
+    case "not": return checkClosed(f.a, bound);
+    case "all": case "ex": return checkClosed(f.a, bound.concat([f.v]));
+    default: checkClosed(f.a, bound); checkClosed(f.b, bound); return;
+  }
+}
+
+/* ============================================================
+   4. RESA IN NOTAZIONE
+   ============================================================ */
+
+function showTerm(a, env){
+  if(a.t === "name") return a.n;
+  if(env && env[a.n] !== undefined) return objLabel(env[a.n]);
+  return a.n;
+}
+
+function show(f, env, top){
+  const wrap = (s) => top ? s : "(" + s + ")";
+  switch(f.t){
+    case "bot":  return "⊥";
+    case "pred": return f.n + "(" + f.args.map(a=>showTerm(a,env)).join(",") + ")";
+    case "eq":   return showTerm(f.a,env) + " = " + showTerm(f.b,env);
+    case "not":
+      if(f.a.t === "eq") return showTerm(f.a.a,env) + " ≠ " + showTerm(f.a.b,env);
+      return "¬" + show(f.a, env, false);
+    case "all":  return wrap("∀" + f.v + " " + show(f.a, env, false));
+    case "ex":   return wrap("∃" + f.v + " " + show(f.a, env, false));
+    case "and":  return wrap(show(f.a,env,false) + " ∧ " + show(f.b,env,false));
+    case "or":   return wrap(show(f.a,env,false) + " ∨ " + show(f.b,env,false));
+    case "imp":  return wrap(show(f.a,env,false) + " → " + show(f.b,env,false));
+    case "iff":  return wrap(show(f.a,env,false) + " ↔ " + show(f.b,env,false));
+  }
+}
+
+/* ============================================================
+   5. VALUTAZIONE CON ALBERO DEI PERCHÉ
+   ============================================================ */
+
+function resolve(a, env){
+  if(a.t === "name"){
+    const i = world.findIndex(b => b.name === a.n);
+    if(i < 0) throw new Error("Il nome «" + a.n + "» non è assegnato a nessun blocco");
+    return i;
+  }
+  return env[a.n];
+}
+
+function ev(f, env){
+  const txt = show(f, env, true);
+  switch(f.t){
+    case "bot":
+      return {v:false, txt, note:"il falso non è mai vero", kids:[]};
+    case "pred": {
+      const idx = f.args.map(a => resolve(a, env));
+      const v = PREDS[f.n].f.apply(null, idx.map(i => world[i]));
+      return {v, txt, note:"si legge dal disegno",
+              obj: idx.map(i => objFull(i)).join(" · "), kids:[]};
+    }
+    case "eq": {
+      const i = resolve(f.a, env), j = resolve(f.b, env);
+      return {v:i===j, txt,
+              note: i===j ? "sono lo stesso oggetto" : "sono due oggetti distinti", kids:[]};
+    }
+    case "not": {
+      const k = ev(f.a, env);
+      return {v:!k.v, txt, kids:[k]};
+    }
+    case "and": {
+      const a = ev(f.a, env), b = ev(f.b, env);
+      if(a.v && b.v) return {v:true, txt, note:"valgono entrambe", kids:[a,b]};
+      return {v:false, txt, note:"basta che una non valga", kids:[!a.v ? a : b]};
+    }
+    case "or": {
+      const a = ev(f.a, env);
+      if(a.v) return {v:true, txt, note:"basta che una valga", kids:[a]};
+      const b = ev(f.b, env);
+      if(b.v) return {v:true, txt, note:"basta che una valga", kids:[b]};
+      return {v:false, txt, note:"non vale nessuna delle due", kids:[a,b]};
+    }
+    case "imp": {
+      const a = ev(f.a, env);
+      if(!a.v) return {v:true, txt,
+        note:"l'antecedente è falso, quindi l'implicazione è vera", kids:[a]};
+      const b = ev(f.b, env);
+      return {v:b.v, txt,
+        note: b.v ? "antecedente e conseguente sono entrambi veri"
+                  : "l'antecedente è vero ma il conseguente è falso", kids:[a,b]};
+    }
+    case "iff": {
+      const a = ev(f.a, env), b = ev(f.b, env);
+      return {v:a.v===b.v, txt,
+        note: a.v===b.v ? "i due lati hanno lo stesso valore"
+                        : "i due lati hanno valori diversi", kids:[a,b]};
+    }
+    case "all": {
+      if(!world.length) return {v:true, txt,
+        note:"il mondo è vuoto: non c'è nulla che possa falsificarla", kids:[]};
+      const kids = [];
+      for(let i = 0; i < world.length; i++){
+        const e = Object.assign({}, env); e[f.v] = i;
+        const k = ev(f.a, e); k.obj = objFull(i);
+        if(!k.v) return {v:false, txt,
+          note:"basta un controesempio: " + f.v + " = " + objLabel(i), kids:[k]};
+        kids.push(k);
+      }
+      return {v:true, txt, note:"vale per tutti gli oggetti del mondo", kids};
+    }
+    case "ex": {
+      if(!world.length) return {v:false, txt,
+        note:"il mondo è vuoto: non c'è nessun testimone", kids:[]};
+      const kids = [];
+      for(let i = 0; i < world.length; i++){
+        const e = Object.assign({}, env); e[f.v] = i;
+        const k = ev(f.a, e); k.obj = objFull(i);
+        if(k.v) return {v:true, txt,
+          note:"basta un testimone: " + f.v + " = " + objLabel(i), kids:[k]};
+        kids.push(k);
+      }
+      return {v:false, txt, note:"nessun oggetto del mondo la rende vera", kids};
+    }
+  }
+}
+
+const truthOf = (f, env) => ev(f, env).v;
+
+/* ============================================================
+   6. IL GIOCO
+   Chi sceglie dipende dal nodo:
+     ∃ ∨ →   sceglie chi difende il VERO
+     ∀ ∧     sceglie chi difende il FALSO
+     ¬       nessuno: i ruoli si scambiano
+   ============================================================ */
+
+const CHOOSES_TRUE  = ["ex","or","imp"];
+const CHOOSES_FALSE = ["all","and"];
+
+let game = null;
+// {lvl, node, env, meTrue, log:[], over:false, won:false, leaf:null}
+
+function startGame(lvl, declaredTrue){
+  const L = LEVELS[lvl];
+  game = {
+    lvl,
+    node: parse(L.formula),
+    env: {},
+    meTrue: declaredTrue,
+    log: [{who:"me", text:"Dichiari che la formula è " + (declaredTrue ? "vera" : "falsa") +
+                         ". Difendi quindi il " + (declaredTrue ? "vero" : "falso") + "."}],
+    over:false, won:false, leaf:null
+  };
+  advance();
+  drawGame();
+}
+
+// porta il gioco al prossimo punto di scelta dello studente, o alla fine
+function advance(){
+  let guard = 0;
+  while(!game.over && guard++ < 400){
+    const n = game.node;
+
+    // doppia implicazione: si gioca come congiunzione di due implicazioni
+    if(n.t === "iff"){
+      game.node = {t:"and", a:{t:"imp",a:n.a,b:n.b}, b:{t:"imp",a:n.b,b:n.a}};
+      game.log.push({who:"sys", text:"La doppia implicazione si gioca come "+
+        show(game.node, game.env, true) + "."});
+      continue;
+    }
+
+    // negazione: scambio di ruoli
+    if(n.t === "not" && n.a.t !== "eq"){
+      game.node = n.a;
+      game.meTrue = !game.meTrue;
+      game.log.push({who:"sys", text:"Sotto la negazione i ruoli si scambiano: ora difendi il " +
+        (game.meTrue ? "vero" : "falso") + "."});
+      continue;
+    }
+
+    // foglia: si guarda il disegno
+    if(n.t === "pred" || n.t === "eq" || n.t === "bot" ||
+       (n.t === "not" && n.a.t === "eq")){
+      const actual = truthOf(n, game.env);
+      game.over = true;
+      game.won = (actual === game.meTrue);
+      game.leaf = {txt: show(n, game.env, true), actual};
+      return;
+    }
+
+    const byTrue = CHOOSES_TRUE.includes(n.t);
+    const mine = byTrue ? game.meTrue : !game.meTrue;
+    if(mine) return;               // tocca allo studente: aspetta
+
+    applyMove(cpuMove(n), false);  // gioca il computer
+  }
+}
+
+// elenco delle mosse disponibili sul nodo corrente
+function movesFor(n){
+  if(n.t === "all" || n.t === "ex"){
+    return world.map((b,i) => ({
+      kind:"obj", i,
+      label: n.v + " = " + objLabel(i),
+      detail: descr(b)
+    }));
+  }
+  if(n.t === "and" || n.t === "or"){
+    return [
+      {kind:"side", side:"a", label: show(n.a, game.env, true)},
+      {kind:"side", side:"b", label: show(n.b, game.env, true)}
+    ];
+  }
+  if(n.t === "imp"){
+    return [
+      {kind:"impA", label:"L'antecedente è falso",
+       detail: show(n.a, game.env, true)},
+      {kind:"impB", label:"Il conseguente è vero",
+       detail: show(n.b, game.env, true)}
+    ];
+  }
+  return [];
+}
+
+// il computer gioca in modo ottimale: se può mantenere la sua pretesa, lo fa
+function cpuMove(n){
+  const ms = movesFor(n);
+  const cpuWantsTrue = !game.meTrue;
+
+  if(n.t === "all" || n.t === "ex"){
+    const target = (n.t === "ex");   // ∃: il cpu difende il vero e cerca un testimone
+    for(const m of ms){
+      const e = Object.assign({}, game.env); e[n.v] = m.i;
+      if(truthOf(n.a, e) === target) return m;
+    }
+    return ms[0];
+  }
+  if(n.t === "and" || n.t === "or"){
+    const target = (n.t === "or");
+    for(const m of ms)
+      if(truthOf(n[m.side], game.env) === target) return m;
+    return ms[0];
+  }
+  if(n.t === "imp"){
+    if(!truthOf(n.a, game.env)) return ms[0];
+    return ms[1];
+  }
+  return ms[0];
+}
+
+function applyMove(m, byMe){
+  const n = game.node;
+  const who = byMe ? "me" : "cpu";
+  const actor = byMe ? "Tu" : "Il computer";
+  const role = (byMe ? game.meTrue : !game.meTrue) ? "il vero" : "il falso";
+
+  if(n.t === "all"){
+    game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
+    game.node = n.a;
+    game.log.push({who, text: actor + " difend" + (byMe?"i":"e") + " " + role +
+      " e lancia la sfida " + n.v + " = " + objLabel(m.i) + " (" + descr(world[m.i]) + ")."});
+  } else if(n.t === "ex"){
+    game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
+    game.node = n.a;
+    game.log.push({who, text: actor + " difend" + (byMe?"i":"e") + " " + role +
+      " e port" + (byMe?"i":"a") + " il testimone " + n.v + " = " + objLabel(m.i) +
+      " (" + descr(world[m.i]) + ")."});
+  } else if(n.t === "and" || n.t === "or"){
+    const kept = n[m.side];
+    game.node = kept;
+    const verb = n.t === "and" ? "attacc" : "scegl";
+    const end  = n.t === "and" ? (byMe?"hi":"a") : (byMe?"i":"e");
+    game.log.push({who, text: actor + " " + verb + end + " ", f: show(kept, game.env, true)});
+  } else if(n.t === "imp"){
+    if(m.kind === "impA"){
+      game.node = n.a;
+      game.meTrue = !game.meTrue;
+      game.log.push({who, text: actor + " sosti" + (byMe?"eni":"ene") +
+        " che l'antecedente è falso; i ruoli si scambiano su ", f: show(n.a, game.env, true)});
+    } else {
+      game.node = n.b;
+      game.log.push({who, text: actor + " sosti" + (byMe?"eni":"ene") +
+        " che il conseguente è vero: ", f: show(n.b, game.env, true)});
+    }
+  }
+}
+
+function playerMove(idx){
+  const ms = movesFor(game.node);
+  applyMove(ms[idx], true);
+  advance();
+  drawGame();
+}
+
+/* ============================================================
+   7. LIVELLI
+   ============================================================ */
+
+const W = {
+  tre: {label:"Tre blocchi", blocks:[
+    B("quadrato","grande","blu",1,1,"a"),
+    B("cerchio","piccolo","rosso",3,1,"b"),
+    B("triangolo","medio","verde",5,3,"c")
+  ]},
+  quattro: {label:"Due quadrati rossi", blocks:[
+    B("quadrato","grande","rosso",2,2,"a"),
+    B("quadrato","medio","rosso",4,2,"b"),
+    B("cerchio","piccolo","verde",1,5,"c"),
+    B("triangolo","grande","blu",5,5,"d")
+  ]},
+  largo: {label:"Cinque blocchi sparsi", blocks:[
+    B("quadrato","grande","blu",1,2,"a"),
+    B("cerchio","medio","rosso",2,4,"b"),
+    B("triangolo","medio","verde",4,1,"c"),
+    B("quadrato","piccolo","rosso",5,4,"d"),
+    B("cerchio","grande","blu",6,2,"e")
+  ]},
+  linea: {label:"Una croce di blocchi", blocks:[
+    B("cerchio","medio","rosso",1,3,"a"),
+    B("quadrato","grande","verde",3,3,"b"),
+    B("cerchio","medio","rosso",5,3,"c"),
+    B("triangolo","piccolo","blu",3,1,"d"),
+    B("quadrato","grande","verde",3,5,"e")
+  ]},
+  scala: {label:"Tre quadrati in diagonale", blocks:[
+    B("quadrato","piccolo","rosso",1,1,"a"),
+    B("quadrato","medio","verde",2,2,"b"),
+    B("quadrato","grande","blu",3,3,"c"),
+    B("cerchio","medio","rosso",5,1,"d"),
+    B("triangolo","piccolo","verde",6,6,"e")
+  ]},
+  pieno: {label:"Sei blocchi, tre forme", blocks:[
+    B("quadrato","grande","rosso",1,1,"a"),
+    B("cerchio","grande","rosso",2,1,"b"),
+    B("triangolo","piccolo","verde",3,3,"c"),
+    B("quadrato","piccolo","blu",4,4,"d"),
+    B("cerchio","medio","verde",5,5,"e"),
+    B("triangolo","medio","blu",6,6,"f")
+  ]}
+};
+
+const LEVELS = [
+  /* ---------- Tre blocchi: i meccanismi uno per volta ---------- */
+  { world:"tre", formula:"Quadrato(a)",
+    teaches:"Niente scelte: la formula parla di un oggetto solo. <strong>Si guarda il disegno.</strong>" },
+  { world:"tre", formula:"Blu(b) ∧ Piccolo(b)",
+    teaches:"Con la <strong>congiunzione</strong> sceglie chi difende il falso: indica quale metà non regge." },
+  { world:"tre", formula:"∃x Triangolo(x)",
+    teaches:"Con <strong>∃</strong> sceglie chi difende il vero: deve esibire un <strong>testimone</strong>." },
+  { world:"tre", formula:"∀x Cerchio(x)",
+    teaches:"Con <strong>∀</strong> sceglie chi difende il falso: deve lanciare una <strong>sfida</strong>, cioè un controesempio." },
+
+  /* ---------- Due quadrati rossi: negazione e implicazione ---------- */
+  { world:"quattro", formula:"∃x (Cerchio(x) ∨ Verde(x))",
+    teaches:"Due scelte di fila, entrambe di chi difende il vero: prima il testimone, poi quale <strong>disgiunto</strong> sostenere." },
+  { world:"quattro", formula:"¬∃x (Blu(x) ∧ Piccolo(x))",
+    teaches:"Sotto la <strong>negazione i ruoli si scambiano</strong>: chi difendeva il vero passa a difendere il falso." },
+  { world:"quattro", formula:"∀x (Quadrato(x) → Rosso(x))",
+    teaches:"L'<strong>implicazione</strong> si gioca come ¬antecedente ∨ conseguente: sceglie chi difende il vero, fra negare l'antecedente e affermare il conseguente." },
+  { world:"quattro", formula:"∀x (Rosso(x) → Grande(x))",
+    teaches:"Stessa forma del livello precedente, antecedente diverso. La sfida va scelta con cura: non ogni oggetto serve." },
+  { world:"quattro", formula:"∃x (Rosso(x) ∧ Triangolo(x))",
+    teaches:"Se un ∃ è falso, ogni testimone cade. Guarda <strong>quale metà</strong> cade ogni volta: non è sempre la stessa." },
+
+  /* ---------- Cinque sparsi: posizione e quantificatori annidati ---------- */
+  { world:"largo", formula:"∃x ∃y (ASinistraDi(x,y) ∧ PiuGrande(y,x))",
+    teaches:"Due testimoni da portare, e vanno scelti <strong>insieme</strong>: il primo da solo non decide nulla." },
+  { world:"largo", formula:"∀x ∃y ASinistraDi(y,x)",
+    teaches:"<strong>Quantificatori annidati.</strong> La sfida arriva prima del testimone, quindi il testimone può dipendere dalla sfida." },
+  { world:"largo", formula:"∃y ∀x (ASinistraDi(y,x) ∨ y = x)",
+    teaches:"Stessi predicati del livello 11, <strong>ordine invertito</strong>. Qui un solo testimone deve resistere a ogni sfida. Cambia il valore di verità?" },
+  { world:"largo", formula:"∀x (Blu(x) ↔ Cerchio(x))",
+    teaches:"La <strong>doppia implicazione</strong> si gioca come congiunzione di due implicazioni: chi difende il falso scegli quale delle due attaccare." },
+
+  /* ---------- La croce: il predicato ternario ---------- */
+  { world:"linea", formula:"InMezzo(b,a,c)",
+    teaches:"Un <strong>predicato ternario</strong>, senza quantificatori. In mezzo vale su righe, colonne e diagonali." },
+  { world:"linea", formula:"∀x (Cerchio(x) → ∃y InMezzo(y,x,b))",
+    teaches:"Sfida, poi implicazione, poi testimone: tre meccanismi in fila. Le caselle vuote contano." },
+  { world:"linea", formula:"∀x (Quadrato(x) → StessoColore(x,b))",
+    teaches:"Attenzione a chi soddisfa l'antecedente: la sfida sbagliata regala la partita all'avversario." },
+  { world:"linea", formula:"∀x ∀y (StessaForma(x,y) ∧ x ≠ y → ∃z InMezzo(z,x,y))",
+    teaches:"<strong>Due sfide di fila.</strong> Serve una coppia della stessa forma per cui la conclusione non regge, e non è la coppia più evidente." },
+
+  /* ---------- La diagonale: dimensioni ordinate ---------- */
+  { world:"scala", formula:"∃x ∃y (InMezzo(b,x,y) ∧ ¬StessaForma(x,y))",
+    teaches:"Serve una coppia allineata con b in mezzo <strong>e</strong> di forme diverse. La diagonale è più lunga di quanto sembri." },
+  { world:"scala", formula:"∀x ∀y (PiuGrande(x,y) → ¬StessaForma(x,y))",
+    teaches:"I tre quadrati hanno dimensioni diverse: questo dovrebbe suggerirti dove guardare." },
+  { world:"scala", formula:"∃x (Quadrato(x) ∧ ∀y (Quadrato(y) → ¬PiuGrande(y,x)))",
+    teaches:"<strong>∃ dentro cui vive un ∀</strong>: prima porti un testimone, poi lo difendi da ogni sfida. È il modo di dire «il più grande»." },
+
+  /* ---------- Sei blocchi: il pieno ---------- */
+  { world:"pieno", formula:"∀x ∃y (StessaForma(x,y) ∧ x ≠ y)",
+    teaches:"«Ognuno ha un compagno della sua forma». Il testimone cambia a ogni sfida: è proprio questo che ∀∃ permette." },
+  { world:"pieno", formula:"∀x ∀y (StessoColore(x,y) → StessaDimensione(x,y))",
+    teaches:"Due sfide e un'implicazione. Fra i tre colori, uno solo tradisce la formula." },
+  { world:"pieno", formula:"∃x ∀y (x ≠ y → ¬Adiacente(x,y))",
+    teaches:"«Esiste un blocco isolato». Un testimone, poi una sfida per ogni altro blocco, e nel mezzo un'implicazione con la negazione: tutti i meccanismi insieme." }
+];
+
+let cleared = {};
+
+function loadLevel(i){
+  world = W[LEVELS[i].world].blocks.map(b => Object.assign({}, b));
+  game = {lvl:i, pending:true};
+  drawGame();
+}
+
+/* ============================================================
+   8. DISEGNO DEL MONDO
+   ============================================================ */
+
+const CELL = 66, PAD = 12;
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function el(name, attrs){
+  const n = document.createElementNS(SVGNS, name);
+  for(const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function drawBoard(svgId, interactive){
+  const b = document.getElementById(svgId);
+  const side = PAD*2 + CELL*N;
+  b.setAttribute("viewBox", "0 0 " + side + " " + side);
+  b.textContent = "";
+
+  for(let r = 1; r <= N; r++) for(let c = 1; c <= N; c++){
+    const cell = el("rect", {
+      x: PAD+(c-1)*CELL, y: PAD+(r-1)*CELL, width:CELL, height:CELL,
+      fill: (r+c)%2 ? "#EDEFE9" : "#F7F9F5", stroke:"#DBE0D8", "stroke-width":1
+    });
+    if(interactive){
+      cell.style.cursor = "pointer";
+      cell.addEventListener("click", () => cellClick(c,r));
+    }
+    b.appendChild(cell);
+  }
+
+  world.forEach((blk,i) => {
+    const cx = PAD+(blk.col-1)*CELL+CELL/2, cy = PAD+(blk.row-1)*CELL+CELL/2;
+    const rad = {piccolo:13, medio:19, grande:25}[blk.size];
+    const fill = {rosso:"var(--rosso)", verde:"var(--verde)", blu:"var(--blu)"}[blk.color];
+    const g = el("g", {});
+
+    let shp;
+    if(blk.shape === "quadrato")
+      shp = el("rect", {x:cx-rad, y:cy-rad, width:rad*2, height:rad*2, fill});
+    else if(blk.shape === "cerchio")
+      shp = el("circle", {cx, cy, r:rad, fill});
+    else {
+      const h = rad*1.05;
+      shp = el("polygon", {points:[cx+","+(cy-h),
+        (cx+rad*1.12)+","+(cy+h*0.75), (cx-rad*1.12)+","+(cy+h*0.75)].join(" "), fill});
+    }
+    g.appendChild(shp);
+
+    if(interactive && i === selected)
+      g.appendChild(el("rect", {
+        x: PAD+(blk.col-1)*CELL+2, y: PAD+(blk.row-1)*CELL+2,
+        width:CELL-4, height:CELL-4, fill:"none",
+        stroke:"var(--ink)", "stroke-width":2, "stroke-dasharray":"4 3"}));
+
+    const lab = el("text", {
+      x: PAD+(blk.col-1)*CELL+CELL-6, y: PAD+(blk.row-1)*CELL+16,
+      "text-anchor":"end", "font-size":13, "font-family":"var(--serif)", fill:"var(--ink)"});
+    lab.textContent = objLabel(i);
+    g.appendChild(lab);
+
+    if(interactive){
+      g.style.cursor = "pointer";
+      g.addEventListener("click", (e) => { e.stopPropagation(); selected = i; renderExplore(); });
+    }
+    b.appendChild(g);
+  });
+}
+
+function cellClick(c,r){
+  const occ = world.findIndex(b => b.col===c && b.row===r);
+  if(occ >= 0){ selected = occ; renderExplore(); return; }
+  if(selected >= 0 && world[selected]){
+    world[selected].col = c; world[selected].row = r;
+    renderExplore();
+  }
+}
+
+function firstFreeCell(){
+  for(let r = 1; r <= N; r++) for(let c = 1; c <= N; c++)
+    if(!world.some(b => b.col===c && b.row===r)) return {c,r};
+  return null;
+}
+
+/* ============================================================
+   9. PANNELLO BLOCCHI
+   ============================================================ */
+
+function chooser(label, options, current, onPick){
+  const row = document.createElement("div");
+  row.className = "attr";
+  const l = document.createElement("span"); l.textContent = label; row.appendChild(l);
+  options.forEach(o => {
+    const btn = document.createElement("button");
+    btn.textContent = o.label;
+    btn.setAttribute("aria-pressed", o.value === current ? "true" : "false");
+    btn.addEventListener("click", () => { onPick(o.value); renderExplore(); });
+    row.appendChild(btn);
+  });
+  return row;
+}
+
+function drawInspector(){
+  const box = document.getElementById("inspector");
+  box.textContent = "";
+  document.getElementById("delBlock").disabled = !world[selected];
+
+  const b = world[selected];
+  if(!b){
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = world.length
+      ? "Clicca un blocco sulla griglia per modificarlo."
+      : "Il mondo è vuoto. Premi «Crea un blocco».";
+    box.appendChild(p);
+    return;
+  }
+  box.appendChild(chooser("Forma", SHAPES.map(s=>({label:cap(s),value:s})), b.shape, v=>b.shape=v));
+  box.appendChild(chooser("Dimensione", SIZES.map(s=>({label:cap(s),value:s})), b.size, v=>b.size=v));
+  box.appendChild(chooser("Colore", COLORS.map(s=>({label:cap(s),value:s})), b.color, v=>b.color=v));
+
+  const taken = world.map((w,i) => i===selected ? null : w.name).filter(Boolean);
+  const opts = [{label:"nessuno", value:null}]
+    .concat(NAMES.filter(n => !taken.includes(n)).map(n => ({label:n, value:n})));
+  box.appendChild(chooser("Nome", opts, b.name, v=>b.name=v));
+}
+
+/* ============================================================
+   10. FORMULE (modalità Esplora)
+   ============================================================ */
+
+let formulas = [];
+
+const PRESETS = {
+  "Mondo 1": {blocks:W.tre.blocks, formulas:[
+    "∀x (Quadrato(x) → Grande(x))",
+    "∃x (Triangolo(x) ∧ Verde(x))",
+    "∀x ∃y ASinistraDi(y,x)",
+    "∃y ∀x (ASinistraDi(y,x) ∨ y = x)"]},
+  "Mondo 2 — in mezzo": {blocks:W.linea.blocks, formulas:[
+    "InMezzo(b,a,c)",
+    "∃x InMezzo(x,a,c)",
+    "∀x (Triangolo(x) → StessoColore(x,b))",
+    "∀x ∀y (StessaForma(x,y) ∧ x ≠ y → ∃z InMezzo(z,x,y))"]},
+  "Mondo 3 — largo": {blocks:W.largo.blocks, formulas:[
+    "∃x (Rosso(x) ∧ Quadrato(x))",
+    "∀x ∃y PiuGrande(y,x)"]},
+  "Mondo vuoto": {blocks:[], formulas:["∀x Quadrato(x)","∃x Quadrato(x)"]}
+};
+
+function loadPreset(name){
+  const p = PRESETS[name];
+  world = p.blocks.map(b => Object.assign({}, b));
+  selected = world.length ? 0 : -1;
+  formulas = p.formulas.map(s => ({src:s, open:false}));
+  renderExplore();
+}
+
+function drawEcho(){
+  const echo = document.getElementById("echo");
+  const s = document.getElementById("src").value.trim();
+  echo.className = "echo";
+  if(!s){ echo.textContent = ""; return; }
+  try{ echo.textContent = show(parse(s), null, true); }
+  catch(err){ echo.className = "echo err"; echo.textContent = err.message; }
+}
+
+function whyNode(node){
+  const li = document.createElement("li");
+  const head = document.createElement("div"); head.className = "node";
+  const mark = document.createElement("span");
+  mark.className = "mark " + (node.v ? "t" : "x");
+  mark.textContent = node.v ? "V" : "F";
+  head.appendChild(mark);
+  const f = document.createElement("span"); f.className = "f"; f.textContent = node.txt;
+  head.appendChild(f);
+  if(node.note){
+    const n = document.createElement("span"); n.className = "note"; n.textContent = node.note;
+    head.appendChild(n);
+  }
+  li.appendChild(head);
+  if(node.obj){
+    const o = document.createElement("div"); o.className = "obj"; o.textContent = node.obj;
+    li.appendChild(o);
+  }
+  if(node.kids && node.kids.length){
+    const ul = document.createElement("ul");
+    node.kids.forEach(k => ul.appendChild(whyNode(k)));
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+function drawFormulas(){
+  const list = document.getElementById("flist");
+  list.textContent = "";
+  if(!formulas.length){
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "Nessuna formula. Scrivine una sopra e aggiungila.";
+    list.appendChild(p);
+    return;
+  }
+  formulas.forEach((entry,i) => {
+    const li = document.createElement("li");
+    let tree = null, errMsg = null, pretty = entry.src;
+    try{
+      const ast = parse(entry.src);
+      pretty = show(ast, null, true);
+      tree = ev(ast, {});
+    }catch(err){ errMsg = err.message; }
+
+    const head = document.createElement("div"); head.className = "fhead";
+    const num = document.createElement("span"); num.className = "fnum";
+    num.textContent = (i+1)+"."; head.appendChild(num);
+    const txt = document.createElement("span"); txt.className = "ftext";
+    txt.textContent = pretty; head.appendChild(txt);
+
+    const chip = document.createElement("span");
+    if(errMsg){ chip.className = "chip f"; chip.textContent = "non valutabile"; chip.title = errMsg; }
+    else { chip.className = "chip " + (tree.v ? "v" : "f"); chip.textContent = tree.v ? "vera" : "falsa"; }
+    head.appendChild(chip);
+
+    const btns = document.createElement("div"); btns.className = "fbtns";
+    if(!errMsg){
+      const t = document.createElement("button");
+      t.textContent = entry.open ? "nascondi" : "perché";
+      t.addEventListener("click", () => { entry.open = !entry.open; drawFormulas(); });
+      btns.appendChild(t);
+    }
+    const edit = document.createElement("button");
+    edit.textContent = "modifica";
+    edit.addEventListener("click", () => {
+      document.getElementById("src").value = entry.src; drawEcho();
+      document.getElementById("src").focus();
+    });
+    btns.appendChild(edit);
+    const rm = document.createElement("button");
+    rm.textContent = "togli";
+    rm.addEventListener("click", () => { formulas.splice(i,1); drawFormulas(); });
+    btns.appendChild(rm);
+    head.appendChild(btns);
+    li.appendChild(head);
+
+    if(errMsg){
+      const e = document.createElement("div"); e.className = "why";
+      e.style.color = "var(--rosso)"; e.textContent = errMsg; li.appendChild(e);
+    } else if(entry.open){
+      const box = document.createElement("div"); box.className = "why";
+      const ul = document.createElement("ul");
+      ul.style.borderLeft = "none"; ul.style.paddingLeft = "0";
+      ul.appendChild(whyNode(tree));
+      box.appendChild(ul); li.appendChild(box);
+    }
+    list.appendChild(li);
+  });
+}
+
+/* ============================================================
+   11. DISEGNO DEL GIOCO
+   ============================================================ */
+
+function drawLevels(){
+  const box = document.getElementById("levels");
+  box.textContent = "";
+  LEVELS.forEach((L,i) => {
+    const b = document.createElement("button");
+    b.textContent = (i+1);
+    if(cleared[i]) b.className = "done";
+    b.setAttribute("aria-pressed", game && game.lvl === i ? "true" : "false");
+    b.addEventListener("click", () => loadLevel(i));
+    box.appendChild(b);
+  });
+}
+
+function drawGame(){
+  drawBoard("gboard", false);
+  drawLevels();
+
+  const L = LEVELS[game.lvl];
+  const prev = game.lvl > 0 ? LEVELS[game.lvl-1].world : null;
+  const isNew = game.lvl > 0 && prev !== L.world;
+  document.getElementById("gtitle").textContent =
+    "Livello " + (game.lvl+1) + " di " + LEVELS.length +
+    " — " + W[L.world].label + (isNew ? " (mondo nuovo)" : "");
+  document.getElementById("gclaim").textContent = show(parse(L.formula), null, true);
+  document.getElementById("gteaches").innerHTML = L.teaches;
+
+  const stage = document.getElementById("gstage");
+  const after = document.getElementById("gafter");
+  const logbox = document.getElementById("glogbox");
+  stage.textContent = ""; after.textContent = ""; logbox.textContent = "";
+
+  /* --- dichiarazione iniziale --- */
+  if(game.pending){
+    const d = document.createElement("div"); d.className = "stage";
+    const q = document.createElement("p"); q.className = "ask";
+    q.textContent = "Questa formula è vera o falsa in questo mondo? Dichiara, poi difendi la tua posizione.";
+    d.appendChild(q);
+    const ch = document.createElement("div"); ch.className = "choices";
+    [["È vera",true],["È falsa",false]].forEach(([lab,val]) => {
+      const b = document.createElement("button");
+      b.className = "primary"; b.textContent = lab;
+      b.addEventListener("click", () => startGame(game.lvl, val));
+      ch.appendChild(b);
+    });
+    d.appendChild(ch);
+    stage.appendChild(d);
+    return;
+  }
+
+  /* --- partita finita --- */
+  if(game.over){
+    if(game.won) cleared[game.lvl] = true;
+    const o = document.createElement("div");
+    o.className = "outcome " + (game.won ? "win" : "lose");
+    const h = document.createElement("h3");
+    h.textContent = game.won ? "Hai vinto." : "Hai perso.";
+    o.appendChild(h);
+
+    const p1 = document.createElement("p");
+    p1.textContent = "Si è arrivati a " + game.leaf.txt + ", che nel disegno è " +
+      (game.leaf.actual ? "vera" : "falsa") + ". Tu difendevi il " +
+      (game.meTrue ? "vero" : "falso") + ".";
+    o.appendChild(p1);
+
+    const p2 = document.createElement("p");
+    p2.className = game.won ? "muted2" : "muted";
+    p2.textContent = game.won
+      ? "Non è fortuna: se dichiari il valore di verità giusto e giochi bene, non puoi perdere. La vittoria è la prova che avevi ragione."
+      : "Il computer gioca in modo ottimale, quindi perdere vuol dire che la dichiarazione iniziale era sbagliata, oppure che una scelta lungo la strada era evitabile. Rigioca e prova l'altra.";
+    o.appendChild(p2);
+    after.appendChild(o);
+
+    const row = document.createElement("div"); row.className = "rowbtns";
+    const again = document.createElement("button");
+    again.textContent = "Rigioca questo livello";
+    again.addEventListener("click", () => loadLevel(game.lvl));
+    row.appendChild(again);
+    if(game.lvl + 1 < LEVELS.length){
+      const nxt = document.createElement("button");
+      nxt.className = "primary";
+      nxt.textContent = "Livello " + (game.lvl+2);
+      nxt.addEventListener("click", () => loadLevel(game.lvl+1));
+      row.appendChild(nxt);
+    }
+    after.appendChild(row);
+    drawLevels();
+    drawLog(logbox);
+    return;
+  }
+
+  /* --- turno dello studente --- */
+  const n = game.node;
+  const d = document.createElement("div"); d.className = "stage";
+
+  const now = document.createElement("p"); now.className = "now";
+  now.textContent = show(n, game.env, true);
+  d.appendChild(now);
+
+  const role = document.createElement("p"); role.className = "role";
+  role.textContent = "Difendi il " + (game.meTrue ? "vero" : "falso") + ".";
+  d.appendChild(role);
+
+  const ask = document.createElement("p"); ask.className = "ask";
+  ask.textContent =
+    n.t === "all" ? "Lancia la sfida: quale oggetto dovrebbe falsificarla?" :
+    n.t === "ex"  ? "Porta il testimone: quale oggetto la rende vera?" :
+    n.t === "and" ? "Attacca una delle due metà: quale non regge?" :
+    n.t === "or"  ? "Sostieni uno dei due disgiunti: quale è vero?" :
+    n.t === "imp" ? "Per difendere l'implicazione hai due strade." : "Scegli.";
+  d.appendChild(ask);
+
+  const ch = document.createElement("div"); ch.className = "choices";
+  movesFor(n).forEach((m,idx) => {
+    const b = document.createElement("button");
+    b.appendChild(document.createTextNode(m.label));
+    if(m.detail){
+      const s = document.createElement("span");
+      s.className = "d"; s.textContent = "  " + m.detail;
+      b.appendChild(s);
+    }
+    b.addEventListener("click", () => playerMove(idx));
+    ch.appendChild(b);
+  });
+  d.appendChild(ch);
+  stage.appendChild(d);
+
+  drawLog(logbox);
+}
+
+function drawLog(box){
+  if(!game.log || !game.log.length) return;
+  const h = document.createElement("h2");
+  h.textContent = "Come si è arrivati qui";
+  h.style.fontFamily = "var(--serif)";
+  h.style.fontSize = "16px";
+  h.style.fontWeight = "normal";
+  h.style.margin = "18px 0 8px";
+  h.style.paddingBottom = "6px";
+  h.style.borderBottom = "1px solid var(--rule-soft)";
+  box.appendChild(h);
+
+  const ol = document.createElement("ol"); ol.className = "log";
+  game.log.forEach(entry => {
+    const li = document.createElement("li");
+    if(entry.who === "me") li.className = "me";
+    li.appendChild(document.createTextNode(entry.text));
+    if(entry.f){
+      const s = document.createElement("span"); s.className = "ff"; s.textContent = entry.f;
+      li.appendChild(s);
+      li.appendChild(document.createTextNode("."));
+    }
+    ol.appendChild(li);
+  });
+  box.appendChild(ol);
+}
+
+/* ============================================================
+   12. TASTIERA, PRESET, SEGNATURA
+   ============================================================ */
+
+function buildKeys(){
+  const keys = ["∀","∃","¬","∧","∨","→","↔","⊥","≠","()"];
+  const box = document.getElementById("keys");
+  keys.forEach(ins => {
+    const b = document.createElement("button");
+    b.textContent = ins === "()" ? "( )" : ins;
+    b.addEventListener("click", () => {
+      const s = document.getElementById("src");
+      const p = s.selectionStart;
+      const text = ins === "()" ? "()" : ins + " ";
+      s.value = s.value.slice(0,p) + text + s.value.slice(s.selectionEnd);
+      s.focus();
+      s.selectionStart = s.selectionEnd = p + (ins === "()" ? 1 : text.length);
+      drawEcho();
+    });
+    box.appendChild(b);
+  });
+}
+
+function buildPresets(){
+  const box = document.getElementById("presets");
+  Object.keys(PRESETS).forEach(name => {
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.addEventListener("click", () => loadPreset(name));
+    box.appendChild(b);
+  });
+}
+
+function buildSignature(){
+  const box = document.getElementById("sigbody");
+  const groups = [
+    ["Forma, dimensione, colore — un argomento",
+     ["Quadrato","Cerchio","Triangolo","Piccolo","Medio","Grande","Rosso","Verde","Blu"]],
+    ["Confronti fra due oggetti",
+     ["StessaForma","StessaDimensione","StessoColore","PiuGrande","PiuPiccolo"]],
+    ["Posizione sulla griglia",
+     ["ASinistraDi","ADestraDi","DavantiA","DietroA","StessaRiga","StessaColonna","Adiacente"]],
+    ["Tre oggetti",["InMezzo"]]
+  ];
+  const tbl = document.createElement("table"); tbl.className = "sig";
+  groups.forEach(([title,names]) => {
+    const hr = document.createElement("tr");
+    const th = document.createElement("th"); th.colSpan = 2; th.textContent = title;
+    hr.appendChild(th); tbl.appendChild(hr);
+    names.forEach(n => {
+      const tr = document.createElement("tr");
+      const a = document.createElement("td");
+      a.textContent = n + "(" + ["x","y","z"].slice(0,PREDS[n].n).join(",") + ")";
+      const b = document.createElement("td"); b.textContent = PREDS[n].d;
+      tr.appendChild(a); tr.appendChild(b); tbl.appendChild(tr);
+    });
+  });
+  box.appendChild(tbl);
+
+  const notes = document.createElement("div");
+  notes.style.cssText = "margin-top:14px;font-size:13.5px;color:var(--ink-soft)";
+  notes.innerHTML =
+    "<p style='margin:0 0 6px'>Si possono usare anche l'uguaglianza " +
+    "<span style='font-family:var(--serif)'>x = y</span>, la sua negazione " +
+    "<span style='font-family:var(--serif)'>x ≠ y</span> e il falso " +
+    "<span style='font-family:var(--serif)'>⊥</span>.</p>" +
+    "<p style='margin:0 0 6px'><strong>Davanti</strong> vuol dire più in basso nella griglia, " +
+    "cioè più vicino a chi guarda. <strong>In mezzo</strong> vale su una riga, una colonna " +
+    "o una diagonale.</p>" +
+    "<p style='margin:0'>Se non hai i simboli sulla tastiera: " +
+    "<span style='font-family:var(--serif)'>\\forall \\exists ~ &amp; | -&gt; &lt;-&gt;</span> " +
+    "funzionano come ∀ ∃ ¬ ∧ ∨ → ↔.</p>";
+  box.appendChild(notes);
+}
+
+/* ============================================================
+   13. AVVIO E MODALITÀ
+   ============================================================ */
+
+let exploreState = null;
+
+function renderExplore(){
+  drawBoard("board", true);
+  drawInspector();
+  drawFormulas();
+  document.getElementById("hint").textContent = world.length
+    ? "Clicca un blocco per selezionarlo, poi una casella vuota per spostarlo."
+    : "Premi «Crea un blocco» per cominciare.";
+}
+
+function setMode(which){
+  const ex = which === "explore";
+  document.getElementById("mExplore").setAttribute("aria-pressed", ex);
+  document.getElementById("mGame").setAttribute("aria-pressed", !ex);
+  document.getElementById("viewExplore").classList.toggle("hidden", !ex);
+  document.getElementById("viewGame").classList.toggle("hidden", ex);
+
+  if(ex){
+    if(exploreState){ world = exploreState.world; selected = exploreState.selected; }
+    renderExplore();
+  } else {
+    exploreState = {world, selected};
+    if(!game || game.lvl === undefined) loadLevel(0);
+    else loadLevel(game.lvl);
+  }
+}
+
+document.getElementById("mExplore").addEventListener("click", () => setMode("explore"));
+document.getElementById("mGame").addEventListener("click", () => setMode("game"));
+
+document.getElementById("addBlock").addEventListener("click", () => {
+  const cell = firstFreeCell();
+  if(!cell){ return; }
+  world.push(B("quadrato","medio","blu",cell.c,cell.r,null));
+  selected = world.length - 1;
+  renderExplore();
+});
+document.getElementById("delBlock").addEventListener("click", () => {
+  if(!world[selected]) return;
+  world.splice(selected,1);
+  selected = world.length ? 0 : -1;
+  renderExplore();
+});
+
+document.getElementById("src").addEventListener("input", drawEcho);
+document.getElementById("src").addEventListener("keydown", (e) => {
+  if(e.key === "Enter") document.getElementById("add").click();
+});
+document.getElementById("add").addEventListener("click", () => {
+  const s = document.getElementById("src");
+  const v = s.value.trim();
+  if(!v) return;
+  formulas.push({src:v, open:false});
+  s.value = ""; drawEcho(); drawFormulas();
+});
+document.getElementById("clear").addEventListener("click", () => { formulas = []; drawFormulas(); });
+
+buildKeys();
+buildPresets();
+buildSignature();
+loadPreset("Mondo 1");
+</script>
+</body>
+</html>

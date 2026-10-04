@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il mondo dei numeri — logica del prim'ordine su ℕ</title>
+<style>
+  :root{
+    --bg:#E7EAE6;
+    --surface:#FCFCFB;
+    --ink:#1A2028;
+    --ink-soft:#5A6470;
+    --rule:#C0C7BE;
+    --rule-soft:#DBE0D8;
+    --board:#F4F6F2;
+    --rosso:#C6372F;
+    --serif:"Palatino Linotype","Book Antiqua",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.5;padding:24px 20px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  header{margin-bottom:18px;max-width:62ch}
+  h1{font-family:var(--serif);font-size:30px;font-weight:normal;
+     letter-spacing:-.01em;margin:0 0 6px}
+  header p{margin:0;color:var(--ink-soft);font-size:14px}
+
+  .modes{display:flex;gap:0;margin:18px 0 20px;border:1px solid var(--rule);width:max-content}
+  .modes button{border:none;padding:8px 20px;font-size:14px;background:var(--surface)}
+  .modes button + button{border-left:1px solid var(--rule)}
+  .modes button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+  .cols{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:start}
+  @media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--rule);padding:16px}
+  .panel + .panel{margin-top:16px}
+  .panel h2{font-family:var(--serif);font-size:17px;font-weight:normal;margin:0 0 12px;
+            padding-bottom:8px;border-bottom:1px solid var(--rule-soft)}
+
+  svg.line{display:block;width:100%;height:auto;background:var(--board);border:1px solid var(--rule)}
+  .boardhint{margin:10px 0 0;font-size:13px;color:var(--ink-soft)}
+
+  button{font-family:var(--sans);font-size:13px;background:var(--surface);color:var(--ink);
+         border:1px solid var(--rule);padding:4px 10px;cursor:pointer}
+  button:hover:not(:disabled){background:var(--bg)}
+  button:disabled{opacity:.45;cursor:default}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.wide{padding:7px 14px;font-size:14px}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.primary:hover:not(:disabled){background:#2B3440}
+  .muted{color:var(--ink-soft)}
+  .empty{font-size:13px;color:var(--ink-soft);font-style:italic;margin:0}
+  .rowbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  #src{width:100%;font-family:var(--serif);font-size:17px;padding:9px 10px;
+       border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+  #src:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  .keys{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+  .keys button{font-family:var(--serif);font-size:16px;min-width:32px;padding:2px 8px}
+  .echo{font-family:var(--serif);font-size:16px;min-height:24px;margin:8px 0 12px;
+        padding:6px 0;border-top:1px solid var(--rule-soft);color:var(--ink-soft)}
+  .echo.err{color:var(--rosso)}
+
+  ol.flist{list-style:none;margin:0;padding:0}
+  ol.flist > li{border-top:1px solid var(--rule-soft);padding:10px 0}
+  ol.flist > li:first-child{border-top:none}
+  .fhead{display:flex;gap:10px;align-items:baseline}
+  .fnum{font-family:var(--serif);font-size:14px;color:var(--ink-soft);min-width:1.6em}
+  .ftext{font-family:var(--serif);font-size:16px;flex:1;min-width:0;word-wrap:break-word}
+  .chip{font-family:var(--sans);font-size:11px;letter-spacing:.02em;padding:2px 7px;
+        white-space:nowrap;border:1px solid var(--ink)}
+  .chip.v{background:var(--ink);color:#fff}
+  .chip.f{background:transparent;color:var(--ink)}
+  .fbtns{display:flex;gap:4px}
+  .fbtns button{font-size:12px;padding:2px 7px}
+
+  .why{margin:10px 0 2px 1.6em;font-size:14px}
+  .why ul{list-style:none;margin:0;padding:0 0 0 18px;border-left:1px solid var(--rule)}
+  .why li{padding:4px 0 4px 10px}
+  .why .node{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .why .f{font-family:var(--serif);font-size:15px}
+  .why .mark{font-family:var(--serif);font-size:14px;min-width:1.1em;text-align:center}
+  .why .mark.t{color:var(--ink);font-weight:bold}
+  .why .mark.x{color:var(--ink-soft)}
+  .why .note{font-size:13px;color:var(--ink-soft);font-style:italic}
+  .why .warn{font-size:13px;color:var(--rosso);font-style:italic}
+
+  /* ---------- gioco ---------- */
+  .levels{display:flex;flex-wrap:wrap;gap:4px}
+  .levels button{min-width:34px;font-family:var(--serif);font-size:15px}
+  .levels button.done::after{content:" ✓";font-size:11px}
+
+  .claim{font-family:var(--serif);font-size:22px;line-height:1.35;margin:0 0 10px;
+         word-wrap:break-word}
+  .modes.small{margin:0 0 10px}
+  .modes.small button{padding:5px 12px;font-size:13px}
+  .runline{font-size:13px;color:var(--ink-soft);margin:0 0 12px}
+  .hintline{font-family:var(--serif);font-size:16px;margin:0 0 14px;
+            padding-left:12px;border-left:2px solid var(--rule)}
+  .hintline:empty{display:none}
+  #ghintrow{margin:0 0 14px}
+  #ghintrow:empty{display:none}
+
+  .stage{border:1px solid var(--rule);background:var(--bg);padding:14px;margin-bottom:14px}
+  .stage .now{font-family:var(--serif);font-size:18px;margin:0 0 12px;word-wrap:break-word}
+  .stage .ask{font-size:16px;line-height:1.45;margin:0 0 12px;word-wrap:break-word}
+  .stage .ask .ff{font-family:var(--serif);font-size:19px}
+  .choices{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .choices button{font-size:13.5px;padding:6px 11px}
+  .choices button .d{color:var(--ink-soft);font-size:12px}
+  input.num{font-family:var(--serif);font-size:17px;width:6.5em;padding:5px 8px;
+            border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+  input.num:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  .quick{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+  .quick button{font-family:var(--serif);font-size:14px;min-width:30px;padding:3px 7px}
+  .numerr{color:var(--rosso);font-size:13px;margin:8px 0 0}
+
+  ol.log{margin:0;padding-left:1.5em;font-size:13.5px;color:var(--ink-soft)}
+  ol.log li{padding:2px 0}
+  ol.log .me{color:var(--ink)}
+  ol.log span.ff{font-family:var(--serif);font-size:14px;color:var(--ink)}
+
+  .outcome{border:1px solid var(--ink);padding:14px;margin-bottom:14px}
+  .outcome h3{font-family:var(--serif);font-size:20px;font-weight:normal;margin:0 0 6px}
+  .outcome p{margin:0 0 8px;font-size:14px}
+  .outcome p:last-child{margin-bottom:0}
+  .outcome.lose{background:var(--bg)}
+  .outcome.win{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .outcome.win .muted2{color:#C9CFD6}
+
+  details.sig{margin-top:16px;background:var(--surface);border:1px solid var(--rule)}
+  details.sig > summary{padding:12px 16px;cursor:pointer;font-family:var(--serif);font-size:16px}
+  .sigbody{padding:0 16px 16px}
+  table.sig{border-collapse:collapse;width:100%;font-size:13.5px}
+  table.sig th{text-align:left;font-weight:normal;font-family:var(--serif);font-size:14px;
+               color:var(--ink-soft);padding:10px 10px 6px 0;border-bottom:1px solid var(--rule)}
+  table.sig td{padding:4px 10px 4px 0;vertical-align:top;border-bottom:1px solid var(--rule-soft)}
+  table.sig td:first-child{font-family:var(--serif);white-space:nowrap;width:1%}
+  .signote{font-size:13px;color:var(--ink-soft);margin:14px 0 0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Il mondo dei numeri</h1>
+  <p>Lo stesso linguaggio, un mondo infinito. Qui guardare non basta più: serve una ragione.</p>
+</header>
+
+<div class="modes" role="group" aria-label="Modalità">
+  <button id="mExplore" aria-pressed="true">Esplora</button>
+  <button id="mGame" aria-pressed="false">Gioca</button>
+</div>
+
+<!-- ===================== ESPLORA ===================== -->
+<div id="viewExplore">
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Il mondo: i numeri naturali</h2>
+        <svg id="eline" viewBox="0 0 660 96" role="img" aria-label="Retta dei numeri naturali"></svg>
+        <p class="boardhint">Il disegno mostra l'inizio. I numeri non finiscono:
+          dopo l'ultimo che vedi ce n'è sempre un altro.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Frasi di esempio</h2>
+        <div class="rowbtns" id="presets"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Scrivi una formula</h2>
+        <input id="src" spellcheck="false" autocomplete="off"
+               placeholder="∀x ∃y (x &lt; y)">
+        <div class="keys" id="keys"></div>
+        <div class="echo" id="echo"></div>
+        <div class="rowbtns">
+          <button class="wide primary" id="add">Aggiungi alla lista</button>
+          <span class="muted" style="font-size:13px">Variabili: x y z u v w</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Formule</h2>
+        <ol class="flist" id="flist"></ol>
+        <div class="rowbtns" style="margin-top:12px">
+          <button id="clear">Svuota la lista</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== GIOCA ===================== -->
+<div id="viewGame" class="hidden">
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Dove siamo</h2>
+        <svg id="gline" viewBox="0 0 660 96" role="img" aria-label="Retta dei numeri naturali"></svg>
+        <p class="boardhint" id="ghint">I numeri scelti finora compaiono qui sopra.</p>
+      </div>
+      <div class="panel">
+        <h2>Livelli</h2>
+        <div class="modes small" role="group" aria-label="Modo di gioco">
+          <button id="gTrain" aria-pressed="true">Allenamento</button>
+          <button id="gRun" aria-pressed="false">Corsa</button>
+        </div>
+        <p class="runline" id="grunline"></p>
+        <div class="levels" id="levels"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2 id="gtitle">Livello</h2>
+        <p class="claim" id="gclaim"></p>
+        <div class="rowbtns" id="ghintrow"></div>
+        <p class="hintline" id="ghinttext"></p>
+        <div id="gstage"></div>
+        <div id="gafter"></div>
+        <div id="glogbox"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<details class="sig">
+  <summary>La segnatura: quali simboli puoi usare</summary>
+  <div class="sigbody" id="sigbody"></div>
+</details>
+
+</div>
+<script>
+"use strict";
+
+/* ============================================================
+   1. LA STRUTTURA: I NUMERI NATURALI
+   ============================================================ */
+
+const VARS = ["x","y","z","u","v","w"];
+const MAXNUM = 9999;
+
+function isPrime(n){
+  if(n < 2) return false;
+  if(n % 2 === 0) return n === 2;
+  for(let d = 3; d*d <= n; d += 2) if(n % d === 0) return false;
+  return true;
+}
+
+const PREDS = {
+  Pari:    {n:1, f:a => a % 2 === 0,   d:"x è pari",
+            def:"∃y (x = y + y)"},
+  Dispari: {n:1, f:a => a % 2 === 1,   d:"x è dispari",
+            def:"∃y (x = y + y + 1)"},
+  Primo:   {n:1, f:a => isPrime(a),    d:"x è un numero primo",
+            def:"x > 1 ∧ ∀y (Divide(y,x) → (y = 1 ∨ y = x))"},
+  Divide:  {n:2, f:(a,b) => a === 0 ? b === 0 : b % a === 0, d:"x divide y",
+            def:"∃z (y = x · z)"}
+};
+
+const RELS = {
+  "=": {f:(a,b) => a === b,  d:"uguale"},
+  "≠": {f:(a,b) => a !== b,  d:"diverso"},
+  "<": {f:(a,b) => a <  b,   d:"minore"},
+  ">": {f:(a,b) => a >  b,   d:"maggiore"},
+  "≤": {f:(a,b) => a <= b,   d:"minore o uguale"},
+  "≥": {f:(a,b) => a >= b,   d:"maggiore o uguale"}
+};
+
+/* ============================================================
+   2. ANALISI SINTATTICA
+   ============================================================ */
+
+const S = {ALL:"∀", EX:"∃", NOT:"¬", AND:"∧", OR:"∨", IMP:"→", IFF:"↔", BOT:"⊥"};
+
+function tokenize(s){
+  const t = []; let i = 0;
+  const multi = [
+    ["<->",S.IFF],["<=>",S.IFF],["\\iff",S.IFF],
+    ["->",S.IMP],["=>",S.IMP],["\\to",S.IMP],
+    ["<=","≤"],[">=","≥"],["=<","≤"],
+    ["!=","≠"],["/=","≠"],
+    ["\\forall",S.ALL],["\\exists",S.EX],
+    ["\\neg",S.NOT],["\\wedge",S.AND],["\\vee",S.OR],["\\bot",S.BOT],
+    ["\\leq","≤"],["\\geq","≥"],["\\cdot","·"],["\\times","·"],
+    ["/\\",S.AND],["\\/",S.OR]
+  ];
+  outer:
+  while(i < s.length){
+    const c = s[i];
+    if(/\s/.test(c)){ i++; continue; }
+    for(const [a,b] of multi)
+      if(s.startsWith(a,i)){ t.push({k:b}); i += a.length; continue outer; }
+    if("∀@".includes(c)){ t.push({k:S.ALL}); i++; continue; }
+    if("∃#".includes(c)){ t.push({k:S.EX}); i++; continue; }
+    if("¬~!".includes(c)){ t.push({k:S.NOT}); i++; continue; }
+    if("∧&".includes(c)){ t.push({k:S.AND}); i++; continue; }
+    if("∨|".includes(c)){ t.push({k:S.OR}); i++; continue; }
+    if("·*".includes(c)){ t.push({k:"·"}); i++; continue; }
+    if(c==="→"){ t.push({k:S.IMP}); i++; continue; }
+    if(c==="↔"){ t.push({k:S.IFF}); i++; continue; }
+    if(c==="⊥"){ t.push({k:S.BOT}); i++; continue; }
+    if("(),.=≠<>≤≥+".includes(c)){ t.push({k:c}); i++; continue; }
+    if(/[0-9]/.test(c)){
+      let j = i;
+      while(j < s.length && /[0-9]/.test(s[j])) j++;
+      const val = parseInt(s.slice(i,j),10);
+      if(val > MAXNUM)
+        throw new Error("Numero troppo grande: usa numeri fino a " + MAXNUM);
+      t.push({k:"num", v:val}); i = j; continue;
+    }
+    if(/[A-Za-z_]/.test(c)){
+      let j = i;
+      while(j < s.length && /[A-Za-z0-9_]/.test(s[j])) j++;
+      t.push({k:"id", v:s.slice(i,j)}); i = j; continue;
+    }
+    throw new Error("Simbolo non riconosciuto: «" + c + "»");
+  }
+  return t;
+}
+
+const RELTOKS = ["=","≠","<",">","≤","≥"];
+
+function parse(str){
+  const t = tokenize(str);
+  let p = 0;
+  const peek = () => (p < t.length ? t[p] : {k:"eof"});
+  const eat = (k) => {
+    if(peek().k !== k) throw new Error(peek().k === "eof"
+      ? "La formula finisce troppo presto: manca «" + k + "»"
+      : "Atteso «" + k + "», trovato «" + (peek().v !== undefined ? peek().v : peek().k) + "»");
+    return t[p++];
+  };
+
+  /* --- termini: numerali, variabili, + e · --- */
+  function tAtom(){
+    const tk = peek();
+    if(tk.k === "num"){ p++; return {t:"num", k:tk.v}; }
+    if(tk.k === "("){ p++; const a = tAdd(); eat(")"); return a; }
+    if(tk.k === "id"){
+      if(VARS.includes(tk.v)){ p++; return {t:"var", n:tk.v}; }
+      if(/^[A-Z]/.test(tk.v))
+        throw new Error("«" + tk.v + "» è un predicato, non un numero");
+      throw new Error("«" + tk.v + "» non è una variabile (usa x y z u v w)");
+    }
+    if(tk.k === "eof") throw new Error("La formula finisce troppo presto: manca un numero o una variabile");
+    throw new Error("Atteso un numero o una variabile, trovato «" + (tk.v !== undefined ? tk.v : tk.k) + "»");
+  }
+  function tMul(){ let l = tAtom(); while(peek().k === "·"){ p++; l = {t:"mul", a:l, b:tAtom()}; } return l; }
+  function tAdd(){ let l = tMul();  while(peek().k === "+"){ p++; l = {t:"add", a:l, b:tMul()}; } return l; }
+
+  /* --- formula atomica: relazione o predicato --- */
+  function relAtom(){
+    const a = tAdd();
+    const op = peek().k;
+    if(!RELTOKS.includes(op))
+      throw new Error("Atteso un segno di confronto (= ≠ < > ≤ ≥) dopo «" + showTerm(a, null) + "»");
+    p++;
+    return {t:"rel", op, a, b:tAdd()};
+  }
+
+  function atom(){
+    const tk = peek();
+    if(tk.k === "("){
+      const save = p;
+      try{
+        p++; const f = iff(); eat(")");
+        const nx = peek().k;
+        if(!RELTOKS.includes(nx) && nx !== "+" && nx !== "·") return f;
+      }catch(e){ /* non era una formula fra parentesi */ }
+      p = save;
+      return relAtom();
+    }
+    if(tk.k === S.BOT){ p++; return {t:"bot"}; }
+    if(tk.k === "id" && /^[A-Z]/.test(tk.v)){
+      const name = tk.v; p++;
+      const spec = PREDS[name];
+      if(!spec) throw new Error("Predicato sconosciuto: «" + name + "»");
+      eat("(");
+      const args = [tAdd()];
+      while(peek().k === ","){ p++; args.push(tAdd()); }
+      eat(")");
+      if(args.length !== spec.n)
+        throw new Error(name + " vuole " + spec.n +
+          (spec.n === 1 ? " argomento" : " argomenti") + ", ne ha " + args.length);
+      return {t:"pred", n:name, args};
+    }
+    return relAtom();
+  }
+
+  function unary(){
+    const tk = peek();
+    if(tk.k === S.NOT){ p++; return {t:"not", a:unary()}; }
+    if(tk.k === S.ALL || tk.k === S.EX){
+      p++;
+      const vt = peek();
+      if(vt.k !== "id" || !VARS.includes(vt.v))
+        throw new Error("Dopo un quantificatore serve una variabile (x y z u v w)");
+      p++;
+      if(peek().k === ".") p++;
+      return {t: tk.k === S.ALL ? "all" : "ex", v:vt.v, a:iff()};
+    }
+    return atom();
+  }
+  function and(){ let l=unary(); while(peek().k===S.AND){ p++; l={t:"and",a:l,b:unary()}; } return l; }
+  function or(){  let l=and();   while(peek().k===S.OR ){ p++; l={t:"or", a:l,b:and()};   } return l; }
+  function imp(){ const l=or();  if(peek().k===S.IMP){ p++; return {t:"imp",a:l,b:imp()}; } return l; }
+  function iff(){ let l=imp();   while(peek().k===S.IFF){ p++; l={t:"iff",a:l,b:imp()}; } return l; }
+
+  const f = iff();
+  if(p < t.length)
+    throw new Error("Simboli in eccesso a partire da «" + (peek().v !== undefined ? peek().v : peek().k) + "»");
+  checkClosed(f, []);
+  return f;
+}
+
+function checkClosed(f, bound){
+  const chkT = (a) => {
+    if(a.t === "var" && !bound.includes(a.n))
+      throw new Error("La variabile «" + a.n + "» non è legata ad alcun quantificatore");
+    if(a.t === "add" || a.t === "mul"){ chkT(a.a); chkT(a.b); }
+  };
+  switch(f.t){
+    case "bot": return;
+    case "pred": f.args.forEach(chkT); return;
+    case "rel": chkT(f.a); chkT(f.b); return;
+    case "not": return checkClosed(f.a, bound);
+    case "all": case "ex": return checkClosed(f.a, bound.concat([f.v]));
+    default: checkClosed(f.a, bound); checkClosed(f.b, bound); return;
+  }
+}
+
+/* ============================================================
+   3. RESA IN NOTAZIONE E CALCOLO DEI TERMINI
+   ============================================================ */
+
+// livello: 0 = somma, 1 = prodotto, 2 = atomico
+function showTerm(a, env, lvl){
+  lvl = lvl || 0;
+  switch(a.t){
+    case "num": return String(a.k);
+    case "var": return (env && env[a.n] !== undefined) ? String(env[a.n]) : a.n;
+    case "mul": {
+      const s = showTerm(a.a,env,1) + " · " + showTerm(a.b,env,1);
+      return lvl > 1 ? "(" + s + ")" : s;
+    }
+    case "add": {
+      const s = showTerm(a.a,env,0) + " + " + showTerm(a.b,env,0);
+      return lvl > 0 ? "(" + s + ")" : s;
+    }
+  }
+}
+
+function valTerm(a, env){
+  switch(a.t){
+    case "num": return a.k;
+    case "var": {
+      const v = env[a.n];
+      if(v === undefined) throw new Error("La variabile «" + a.n + "» non ha un valore");
+      return v;
+    }
+    case "add": return valTerm(a.a,env) + valTerm(a.b,env);
+    case "mul": return valTerm(a.a,env) * valTerm(a.b,env);
+  }
+}
+
+const isCompound = (a) => a.t === "add" || a.t === "mul";
+
+function show(f, env, top){
+  const wrap = (s) => top ? s : "(" + s + ")";
+  switch(f.t){
+    case "bot":  return "⊥";
+    case "pred": return f.n + "(" + f.args.map(a => showTerm(a,env,0)).join(", ") + ")";
+    case "rel":  return showTerm(f.a,env,0) + " " + f.op + " " + showTerm(f.b,env,0);
+    case "not":  return "¬" + show(f.a, env, false);
+    case "all":  return wrap("∀" + f.v + " " + show(f.a, env, false));
+    case "ex":   return wrap("∃" + f.v + " " + show(f.a, env, false));
+    case "and":  return wrap(show(f.a,env,false) + " ∧ " + show(f.b,env,false));
+    case "or":   return wrap(show(f.a,env,false) + " ∨ " + show(f.b,env,false));
+    case "imp":  return wrap(show(f.a,env,false) + " → " + show(f.b,env,false));
+    case "iff":  return wrap(show(f.a,env,false) + " ↔ " + show(f.b,env,false));
+  }
+}
+
+/* ============================================================
+   4. RICERCA NEI NUMERI
+   Il dominio è infinito: non si può scorrere tutto.
+   Si esamina un tratto, esteso attorno ai valori già in gioco.
+   ============================================================ */
+
+const SCAN_EV   = 24;   // tratto iniziale esaminato durante la valutazione
+const SCAN_MOVE = 90;   // tratto iniziale esaminato dal computer per muovere
+
+function spread(env, base, around){
+  const s = new Set();
+  for(let i = 0; i <= base; i++) s.add(i);
+  for(const k in env){
+    const v = env[k];
+    for(let d = -3; d <= around; d++) if(v + d >= 0) s.add(v + d);
+    if(v * 2 <= MAXNUM * 4) s.add(v * 2);
+  }
+  return Array.from(s).sort((a,b) => a - b);
+}
+
+const evalSpace = (env) => spread(env, SCAN_EV, 8);
+const moveSpace = (env) => spread(env, SCAN_MOVE, 220);
+
+/* ============================================================
+   5. VALUTAZIONE CON ALBERO DEI PERCHÉ
+   ============================================================ */
+
+const MAXKIDS = 5;
+
+function ev(f, env){
+  const txt = show(f, env, true);
+  switch(f.t){
+    case "bot":
+      return {v:false, txt, note:"il falso non è mai vero", kids:[]};
+    case "pred": {
+      const vals = f.args.map(a => valTerm(a, env));
+      const v = PREDS[f.n].f.apply(null, vals);
+      const note = f.args.some(isCompound)
+        ? "si calcola: " + f.n + "(" + vals.join(", ") + ")"
+        : "si legge nella definizione di " + f.n;
+      return {v, txt, note, kids:[]};
+    }
+    case "rel": {
+      const x = valTerm(f.a, env), y = valTerm(f.b, env);
+      const note = (isCompound(f.a) || isCompound(f.b))
+        ? "si calcola: " + x + " " + f.op + " " + y
+        : "si confrontano due numeri";
+      return {v: RELS[f.op].f(x,y), txt, note, kids:[]};
+    }
+    case "not": {
+      const k = ev(f.a, env);
+      return {v:!k.v, txt, kids:[k]};
+    }
+    case "and": {
+      const a = ev(f.a, env), b = ev(f.b, env);
+      if(a.v && b.v) return {v:true, txt, note:"valgono entrambe", kids:[a,b]};
+      return {v:false, txt, note:"basta che una non valga", kids:[!a.v ? a : b]};
+    }
+    case "or": {
+      const a = ev(f.a, env);
+      if(a.v) return {v:true, txt, note:"basta che una valga", kids:[a]};
+      const b = ev(f.b, env);
+      if(b.v) return {v:true, txt, note:"basta che una valga", kids:[b]};
+      return {v:false, txt, note:"non vale nessuna delle due", kids:[a,b]};
+    }
+    case "imp": {
+      const a = ev(f.a, env);
+      if(!a.v) return {v:true, txt,
+        note:"l'antecedente è falso, quindi l'implicazione è vera", kids:[a]};
+      const b = ev(f.b, env);
+      return {v:b.v, txt,
+        note: b.v ? "antecedente e conseguente sono entrambi veri"
+                  : "l'antecedente è vero ma il conseguente è falso", kids:[a,b]};
+    }
+    case "iff": {
+      const a = ev(f.a, env), b = ev(f.b, env);
+      return {v:a.v===b.v, txt,
+        note: a.v===b.v ? "i due lati hanno lo stesso valore"
+                        : "i due lati hanno valori diversi", kids:[a,b]};
+    }
+    case "all": {
+      const sp = evalSpace(env);
+      const kids = [];
+      for(const i of sp){
+        const e = Object.assign({}, env); e[f.v] = i;
+        const k = ev(f.a, e); k.obj = f.v + " = " + i;
+        if(!k.v) return {v:false, txt,
+          note:"basta un controesempio: " + f.v + " = " + i, kids:[k]};
+        if(kids.length < MAXKIDS) kids.push(k);
+      }
+      return {v:true, txt, kids,
+        note:"vale per tutti i numeri esaminati",
+        warn:"nessun controesempio fra i numeri provati, ma i numeri sono infiniti: " +
+             "per esserne certi serve una ragione, non un controllo"};
+    }
+    case "ex": {
+      const sp = evalSpace(env);
+      const kids = [];
+      for(const i of sp){
+        const e = Object.assign({}, env); e[f.v] = i;
+        const k = ev(f.a, e); k.obj = f.v + " = " + i;
+        if(k.v) return {v:true, txt,
+          note:"basta un testimone: " + f.v + " = " + i, kids:[k]};
+        if(kids.length < MAXKIDS) kids.push(k);
+      }
+      return {v:false, txt, kids,
+        note:"nessuno dei numeri esaminati la rende vera",
+        warn:"nessun testimone fra i numeri provati, ma i numeri sono infiniti: " +
+             "per esserne certi serve una ragione, non un controllo"};
+    }
+  }
+}
+
+const truthOf = (f, env) => ev(f, env).v;
+
+/* ============================================================
+   6. IL GIOCO
+   Chi sceglie dipende dal nodo:
+     ∃ ∨ →   sceglie chi difende il VERO
+     ∀ ∧     sceglie chi difende il FALSO
+     ¬       nessuno: i ruoli si scambiano
+   ============================================================ */
+
+const CHOOSES_TRUE  = ["ex","or","imp"];
+const CHOOSES_FALSE = ["all","and"];
+
+let game = null;
+
+function startGame(lvl, declaredTrue){
+  const L = LEVELS[lvl];
+  game = {
+    lvl,
+    node: parse(L.formula),
+    env: {},
+    meTrue: declaredTrue,
+    log: [{who:"me", text:"Dichiari che la formula è " + (declaredTrue ? "vera" : "falsa") +
+                         ". Difendi quindi il " + (declaredTrue ? "vero" : "falso") + "."}],
+    over:false, won:false, leaf:null
+  };
+  advance();
+  drawGame();
+}
+
+function advance(){
+  let guard = 0;
+  while(!game.over && guard++ < 400){
+    const n = game.node;
+
+    if(n.t === "iff"){
+      game.node = {t:"and", a:{t:"imp",a:n.a,b:n.b}, b:{t:"imp",a:n.b,b:n.a}};
+      game.log.push({who:"sys", text:"La doppia implicazione si gioca come " +
+        show(game.node, game.env, true) + "."});
+      continue;
+    }
+
+    if(n.t === "not"){
+      game.node = n.a;
+      game.meTrue = !game.meTrue;
+      game.log.push({who:"sys", text:"Sotto la negazione i ruoli si scambiano: ora difendi il " +
+        (game.meTrue ? "vero" : "falso") + "."});
+      continue;
+    }
+
+    if(n.t === "rel" || n.t === "pred" || n.t === "bot"){
+      const actual = truthOf(n, game.env);
+      game.over = true;
+      game.won = (actual === game.meTrue);
+      game.leaf = {txt: show(n, game.env, true), actual};
+      return;
+    }
+
+    const byTrue = CHOOSES_TRUE.includes(n.t);
+    const mine = byTrue ? game.meTrue : !game.meTrue;
+    if(mine) return;
+
+    applyMove(cpuMove(n), false);
+  }
+}
+
+function movesFor(n){
+  if(n.t === "all" || n.t === "ex") return [{kind:"num"}];
+  if(n.t === "and" || n.t === "or"){
+    return [
+      {kind:"side", side:"a", label: show(n.a, game.env, true)},
+      {kind:"side", side:"b", label: show(n.b, game.env, true)}
+    ];
+  }
+  if(n.t === "imp"){
+    return [
+      {kind:"impA", label:"L'antecedente è falso", detail: show(n.a, game.env, true)},
+      {kind:"impB", label:"Il conseguente è vero", detail: show(n.b, game.env, true)}
+    ];
+  }
+  return [];
+}
+
+// il computer gioca bene: se può mantenere la sua pretesa, lo fa
+function cpuMove(n){
+  if(n.t === "all" || n.t === "ex"){
+    const target = (n.t === "ex");      // ∃: difende il vero e cerca un testimone
+    const sp = moveSpace(game.env);
+    for(const i of sp){
+      const e = Object.assign({}, game.env); e[n.v] = i;
+      if(truthOf(n.a, e) === target) return {kind:"num", i};
+    }
+    // nessuna mossa salva il computer: sceglie comunque qualcosa di plausibile
+    return {kind:"num", i: sp[Math.floor(Math.random() * Math.min(sp.length, 12))]};
+  }
+  const ms = movesFor(n);
+  if(n.t === "and" || n.t === "or"){
+    const target = (n.t === "or");
+    for(const m of ms)
+      if(truthOf(n[m.side], game.env) === target) return m;
+    return ms[Math.floor(Math.random()*2)];
+  }
+  if(n.t === "imp"){
+    if(!truthOf(n.a, game.env)) return ms[0];
+    if(truthOf(n.b, game.env))  return ms[1];
+    return ms[Math.floor(Math.random()*2)];
+  }
+  return ms[0];
+}
+
+function applyMove(m, byMe){
+  const n = game.node;
+  const who = byMe ? "me" : "cpu";
+  const actor = byMe ? "Tu" : "Il computer";
+  const role = (byMe ? game.meTrue : !game.meTrue) ? "il vero" : "il falso";
+
+  if(n.t === "all"){
+    game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
+    game.node = n.a;
+    game.log.push({who, text: actor + " difend" + (byMe?"i":"e") + " " + role +
+      " e lanci" + (byMe?"":"a") + " la sfida " + n.v + " = " + m.i + "."});
+  } else if(n.t === "ex"){
+    game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
+    game.node = n.a;
+    game.log.push({who, text: actor + " difend" + (byMe?"i":"e") + " " + role +
+      " e port" + (byMe?"i":"a") + " il testimone " + n.v + " = " + m.i + "."});
+  } else if(n.t === "and" || n.t === "or"){
+    const kept = n[m.side];
+    game.node = kept;
+    const verb = n.t === "and" ? "attacc" : "scegl";
+    const end  = n.t === "and" ? (byMe?"hi":"a") : (byMe?"i":"e");
+    game.log.push({who, text: actor + " " + verb + end + " ", f: show(kept, game.env, true)});
+  } else if(n.t === "imp"){
+    if(m.kind === "impA"){
+      game.node = n.a;
+      game.meTrue = !game.meTrue;
+      game.log.push({who, text: actor + " sosti" + (byMe?"eni":"ene") +
+        " che l'antecedente è falso; i ruoli si scambiano su ", f: show(n.a, game.env, true)});
+    } else {
+      game.node = n.b;
+      game.log.push({who, text: actor + " sosti" + (byMe?"eni":"ene") +
+        " che il conseguente è vero: ", f: show(n.b, game.env, true)});
+    }
+  }
+}
+
+function playerMove(idx){
+  const ms = movesFor(game.node);
+  applyMove(ms[idx], true);
+  advance();
+  drawGame();
+}
+
+function playerNumber(k){
+  applyMove({kind:"num", i:k}, true);
+  advance();
+  drawGame();
+}
+
+/* ============================================================
+   7. LIVELLI
+   ============================================================ */
+
+const LEVELS = [
+  {formula:"∃x (x + 3 = 7)",
+   hint:"Esiste un numero che, aggiunto a 3, dà 7."},
+  {formula:"∀x (x + 0 = x)",
+   hint:"Aggiungere zero non cambia nulla."},
+  {formula:"∃x (x + 1 = 0)",
+   hint:"Esiste un numero il cui successore è zero."},
+  {formula:"∀x (x > 0)",
+   hint:"Ogni numero è maggiore di zero."},
+  {formula:"∀x (x < x + 1)",
+   hint:"Ogni numero è più piccolo del suo successore."},
+  {formula:"∀x (Pari(x) → Pari(x + 2))",
+   hint:"Se un numero è pari, anche quello due posti più avanti lo è."},
+  {formula:"∀x (Primo(x) → Dispari(x))",
+   hint:"Ogni numero primo è dispari."},
+  {formula:"∃x (Primo(x) ∧ Pari(x))",
+   hint:"Esiste un numero che è primo e pari insieme."},
+  {formula:"∀x (x + x = x · x)",
+   hint:"Sommare un numero a se stesso dà sempre lo stesso risultato che moltiplicarlo per se stesso."},
+  {formula:"∃x (x · x = x + x ∧ x > 0)",
+   hint:"Esiste un numero diverso da zero il cui doppio e il cui quadrato coincidono."},
+  {formula:"∀x ∃y (x < y)",
+   hint:"Per ogni numero ce n'è uno più grande."},
+  {formula:"∃y ∀x (x < y)",
+   hint:"Esiste un numero più grande di tutti."},
+  {formula:"∀x ∃y (y < x)",
+   hint:"Per ogni numero ce n'è uno più piccolo."},
+  {formula:"∃y ∀x (y ≤ x)",
+   hint:"Esiste un numero che non supera nessun altro: un numero più piccolo di tutti."},
+  {formula:"∀x ∀y (x < y ∨ y < x ∨ x = y)",
+   hint:"Presi due numeri qualsiasi, o il primo è minore del secondo, o il secondo è minore del primo, o sono lo stesso numero."},
+  {formula:"∀x (x > 1 → ∃y (Primo(y) ∧ Divide(y, x)))",
+   hint:"Ogni numero maggiore di 1 ha almeno un divisore primo."},
+  {formula:"∃x ∀y (Divide(x, y))",
+   hint:"Esiste un numero che divide tutti i numeri."},
+  {formula:"∀x (Dispari(x) → Primo(x))",
+   hint:"Ogni numero dispari è primo."},
+  {formula:"∀x ∀y (x < y → ∃z (x < z ∧ z < y))",
+   hint:"Fra due numeri diversi c'è sempre un terzo numero."},
+  {formula:"∀x ∃y (x = y + y ∨ x = y + y + 1)",
+   hint:"Ogni numero è il doppio di qualche numero, oppure il doppio più uno."}
+];
+
+let cleared = {};
+let currentLevel = 0;
+
+const HINTS_PER_RUN = 3;
+let runMode   = false;   // false = allenamento, true = corsa
+let hintsLeft = HINTS_PER_RUN;
+let runOver   = false;
+let hintShown = false;
+
+function loadLevel(i){
+  game = null;
+  hintShown = false;
+  currentLevel = i;
+  drawGame();
+}
+
+function setRunMode(on){
+  runMode = on;
+  runOver = false;
+  hintsLeft = HINTS_PER_RUN;
+  hintShown = false;
+  game = null;
+  if(on) currentLevel = 0;
+  drawGame();
+}
+
+/* ============================================================
+   8. DISEGNO DELLA RETTA
+   ============================================================ */
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const LINE_MAX = 20;
+
+function el(name, attrs){
+  const n = document.createElementNS(SVGNS, name);
+  for(const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function drawLine(svgId, env){
+  const b = document.getElementById(svgId);
+  if(!b) return;
+  while(b.firstChild) b.removeChild(b.firstChild);
+  const x0 = 26, x1 = 612, y = 62;
+  const step = (x1 - x0) / LINE_MAX;
+
+  b.appendChild(el("line", {x1:x0, y1:y, x2:640, y2:y,
+    stroke:"var(--ink-soft)", "stroke-width":1}));
+  // freccia
+  const ar = el("path", {d:"M 640 " + y + " L 632 " + (y-4) + " L 632 " + (y+4) + " Z",
+    fill:"var(--ink-soft)"});
+  b.appendChild(ar);
+  const dots = el("text", {x:622, y:y-12, "text-anchor":"middle",
+    "font-family":"var(--serif)", "font-size":15, fill:"var(--ink-soft)"});
+  dots.textContent = "…";
+  b.appendChild(dots);
+
+  const marked = {};
+  for(const k in env) (marked[env[k]] = marked[env[k]] || []).push(k);
+
+  for(let n = 0; n <= LINE_MAX; n++){
+    const x = x0 + n*step;
+    const hit = marked[n];
+    b.appendChild(el("line", {x1:x, y1:y-(hit?9:5), x2:x, y2:y+(hit?9:5),
+      stroke:hit ? "var(--ink)" : "var(--ink-soft)", "stroke-width":hit?2:1}));
+    const t = el("text", {x, y:y+26, "text-anchor":"middle",
+      "font-family":"var(--serif)", "font-size":13,
+      fill: hit ? "var(--ink)" : "var(--ink-soft)"});
+    t.textContent = n;
+    b.appendChild(t);
+    if(hit){
+      const lab = el("text", {x, y:y-16, "text-anchor":"middle",
+        "font-family":"var(--serif)", "font-size":15, fill:"var(--ink)"});
+      lab.textContent = hit.join(", ");
+      b.appendChild(lab);
+    }
+  }
+
+  const far = Object.keys(env).filter(k => env[k] > LINE_MAX);
+  if(far.length){
+    const t = el("text", {x:26, y:22, "font-family":"var(--serif)",
+      "font-size":14, fill:"var(--ink)"});
+    t.textContent = "fuori dal tratto disegnato: " +
+      far.map(k => k + " = " + env[k]).join(",  ");
+    b.appendChild(t);
+  }
+}
+
+/* ============================================================
+   9. MODALITÀ ESPLORA
+   ============================================================ */
+
+let formulas = [];
+
+const PRESETS = {
+  "Ogni numero ha un successore": "∀x ∃y (y = x + 1)",
+  "Non c'è un numero più grande di tutti": "¬∃y ∀x (x ≤ y)",
+  "Lo zero è il più piccolo": "∀x (0 ≤ x)",
+  "I primi non finiscono": "∀x ∃y (Primo(y) ∧ y > x)",
+  "Fra due numeri ce n'è sempre un terzo": "∀x ∀y (x < y → ∃z (x < z ∧ z < y))",
+  "Ogni numero è pari o dispari": "∀x (Pari(x) ∨ Dispari(x))",
+  "Uno divide tutti": "∀x Divide(1, x)",
+  "La somma non fa mai diminuire": "∀x ∀y (x ≤ x + y)"
+};
+
+function loadPreset(name){
+  document.getElementById("src").value = PRESETS[name];
+  drawEcho();
+}
+
+function drawEcho(){
+  const echo = document.getElementById("echo");
+  const s = document.getElementById("src").value.trim();
+  if(!s){ echo.textContent = ""; echo.className = "echo"; return; }
+  try{ echo.textContent = show(parse(s), null, false); echo.className = "echo"; }
+  catch(e){ echo.textContent = e.message; echo.className = "echo err"; }
+}
+
+function whyNode(node){
+  const li = document.createElement("li");
+  const head = document.createElement("div"); head.className = "node";
+  const mark = document.createElement("span");
+  mark.className = "mark " + (node.v ? "t" : "x");
+  mark.textContent = node.v ? "V" : "F";
+  head.appendChild(mark);
+  const f = document.createElement("span"); f.className = "f"; f.textContent = node.txt;
+  head.appendChild(f);
+  if(node.note){
+    const n = document.createElement("span"); n.className = "note"; n.textContent = node.note;
+    head.appendChild(n);
+  }
+  li.appendChild(head);
+  if(node.warn){
+    const w = document.createElement("div"); w.className = "warn"; w.textContent = node.warn;
+    li.appendChild(w);
+  }
+  if(node.kids && node.kids.length){
+    const ul = document.createElement("ul");
+    node.kids.forEach(k => ul.appendChild(whyNode(k)));
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+function drawFormulas(){
+  const list = document.getElementById("flist");
+  while(list.firstChild) list.removeChild(list.firstChild);
+  if(!formulas.length){
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "Nessuna formula. Scrivine una qui sopra.";
+    list.appendChild(p);
+    return;
+  }
+  formulas.forEach((entry, i) => {
+    const li = document.createElement("li");
+    let tree = null, errMsg = null, pretty = entry.src;
+    try{
+      const ast = parse(entry.src);
+      pretty = show(ast, null, true);
+      tree = ev(ast, {});
+    }catch(e){ errMsg = e.message; }
+
+    const head = document.createElement("div"); head.className = "fhead";
+    const num = document.createElement("span"); num.className = "fnum";
+    num.textContent = (i+1) + "."; head.appendChild(num);
+    const txt = document.createElement("span"); txt.className = "ftext";
+    txt.textContent = pretty; head.appendChild(txt);
+
+    if(tree){
+      const chip = document.createElement("span");
+      chip.className = "chip " + (tree.v ? "v" : "f");
+      chip.textContent = tree.v ? "vera" : "falsa";
+      head.appendChild(chip);
+    }
+    const btns = document.createElement("div"); btns.className = "fbtns";
+    if(tree){
+      const t = document.createElement("button");
+      t.textContent = entry.open ? "nascondi" : "perché";
+      t.onclick = () => { entry.open = !entry.open; drawFormulas(); };
+      btns.appendChild(t);
+    }
+    const edit = document.createElement("button");
+    edit.textContent = "modifica";
+    edit.onclick = () => {
+      document.getElementById("src").value = entry.src;
+      drawEcho();
+      document.getElementById("src").focus();
+    };
+    btns.appendChild(edit);
+    const rm = document.createElement("button");
+    rm.textContent = "togli";
+    rm.onclick = () => { formulas.splice(i,1); drawFormulas(); };
+    btns.appendChild(rm);
+    head.appendChild(btns);
+    li.appendChild(head);
+
+    if(errMsg){
+      const e = document.createElement("div"); e.className = "why";
+      e.innerHTML = "";
+      const p = document.createElement("span"); p.className = "note"; p.textContent = errMsg;
+      e.appendChild(p);
+      li.appendChild(e);
+    } else if(entry.open){
+      const box = document.createElement("div"); box.className = "why";
+      const ul = document.createElement("ul");
+      ul.appendChild(whyNode(tree));
+      box.appendChild(ul);
+      li.appendChild(box);
+    }
+    list.appendChild(li);
+  });
+}
+
+/* ============================================================
+   10. MODALITÀ GIOCA
+   ============================================================ */
+
+function drawLevels(){
+  const box = document.getElementById("levels");
+  while(box.firstChild) box.removeChild(box.firstChild);
+  document.getElementById("gTrain").setAttribute("aria-pressed", runMode ? "false" : "true");
+  document.getElementById("gRun").setAttribute("aria-pressed", runMode ? "true" : "false");
+
+  const line = document.getElementById("grunline");
+  while(line.firstChild) line.removeChild(line.firstChild);
+  if(runMode){
+    line.appendChild(document.createTextNode(
+      runOver
+        ? "Corsa finita al livello " + (currentLevel+1) + " di " + LEVELS.length + "."
+        : "Livello " + (currentLevel+1) + " di " + LEVELS.length +
+          " · suggerimenti rimasti: " + hintsLeft));
+    const r = document.createElement("button");
+    r.textContent = runOver ? "Ricomincia" : "Ricomincia da capo";
+    r.style.marginLeft = "8px";
+    r.onclick = () => setRunMode(true);
+    line.appendChild(r);
+  } else {
+    line.appendChild(document.createTextNode(
+      "Livelli liberi, tentativi illimitati, suggerimento sempre disponibile."));
+  }
+
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement("button");
+    b.textContent = i+1;
+    if(cleared[i]) b.className = "done";
+    b.setAttribute("aria-pressed", i === currentLevel ? "true" : "false");
+    if(runMode) b.disabled = true;
+    b.onclick = () => loadLevel(i);
+    box.appendChild(b);
+  });
+}
+
+function drawHint(){
+  const row  = document.getElementById("ghintrow");
+  const text = document.getElementById("ghinttext");
+  while(row.firstChild) row.removeChild(row.firstChild);
+  text.textContent = "";
+  if(runOver) return;
+
+  if(hintShown){ text.textContent = LEVELS[currentLevel].hint; return; }
+
+  const b = document.createElement("button");
+  if(runMode){
+    b.textContent = "Suggerimento (ne restano " + hintsLeft + ")";
+    b.disabled = hintsLeft === 0;
+  } else {
+    b.textContent = "Suggerimento";
+  }
+  b.onclick = () => {
+    if(runMode){
+      if(hintsLeft === 0) return;
+      hintsLeft--;
+    }
+    hintShown = true;
+    drawGame();
+  };
+  row.appendChild(b);
+}
+
+function drawGame(){
+  drawLevels();
+  const L = LEVELS[currentLevel];
+  document.getElementById("gtitle").textContent = "Livello " + (currentLevel+1);
+  document.getElementById("gclaim").textContent = show(parse(L.formula), null, true);
+  drawHint();
+  drawLine("gline", game ? game.env : {});
+  document.getElementById("ghint").textContent = game && Object.keys(game.env).length
+    ? "I numeri scelti finora compaiono qui sopra."
+    : "Nessun numero scelto per ora.";
+
+  const stage = document.getElementById("gstage");
+  const after = document.getElementById("gafter");
+  const logbox = document.getElementById("glogbox");
+  [stage, after, logbox].forEach(b => { while(b.firstChild) b.removeChild(b.firstChild); });
+
+  /* --- corsa interrotta --- */
+  if(runMode && runOver){
+    const o = document.createElement("div"); o.className = "outcome lose";
+    const h = document.createElement("h3"); h.textContent = "Corsa finita.";
+    o.appendChild(h);
+    const p = document.createElement("p");
+    p.textContent = "Sei arrivato al livello " + (currentLevel+1) + " di " + LEVELS.length + ".";
+    o.appendChild(p);
+    after.appendChild(o);
+    drawLog(logbox);
+    return;
+  }
+
+  /* --- dichiarazione iniziale --- */
+  if(!game){
+    const d = document.createElement("div"); d.className = "stage";
+    const q = document.createElement("p"); q.className = "ask";
+    q.textContent = "Questa frase è vera o falsa nei numeri naturali?";
+    d.appendChild(q);
+    const ch = document.createElement("div"); ch.className = "choices";
+    [["È vera", true], ["È falsa", false]].forEach(([lab, val]) => {
+      const b = document.createElement("button");
+      b.className = "wide primary"; b.textContent = lab;
+      b.onclick = () => startGame(currentLevel, val);
+      ch.appendChild(b);
+    });
+    d.appendChild(ch);
+    stage.appendChild(d);
+    return;
+  }
+
+  /* --- fine partita --- */
+  if(game.over){
+    if(game.won) cleared[currentLevel] = true;
+    if(runMode && !game.won){
+      runOver = true;
+      drawGame();
+      return;
+    }
+    const o = document.createElement("div");
+    o.className = "outcome " + (game.won ? "win" : "lose");
+    const h = document.createElement("h3");
+    h.textContent = game.won ? "Hai vinto." : "Hai perso.";
+    o.appendChild(h);
+    const p1 = document.createElement("p");
+    p1.textContent = "Si è arrivati a " + game.leaf.txt + ", che è " +
+      (game.leaf.actual ? "vera" : "falsa") + ". Tu difendevi il " +
+      (game.meTrue ? "vero" : "falso") + ".";
+    o.appendChild(p1);
+    after.appendChild(o);
+
+    const row = document.createElement("div"); row.className = "rowbtns";
+    if(!runMode){
+      const again = document.createElement("button");
+      again.textContent = "Rigioca questo livello";
+      again.onclick = () => { game = null; drawGame(); };
+      row.appendChild(again);
+    }
+    if(currentLevel + 1 < LEVELS.length){
+      const nxt = document.createElement("button");
+      nxt.className = "primary";
+      nxt.textContent = "Livello successivo";
+      nxt.onclick = () => loadLevel(currentLevel + 1);
+      row.appendChild(nxt);
+    } else if(runMode){
+      const p2 = document.createElement("p");
+      p2.className = "muted2";
+      p2.textContent = "Corsa completata: venti livelli di fila.";
+      o.appendChild(p2);
+    }
+    after.appendChild(row);
+    drawLog(logbox);
+    return;
+  }
+
+  /* --- turno dello studente --- */
+  const n = game.node;
+  const d = document.createElement("div"); d.className = "stage";
+
+  if(n.t === "all" || n.t === "ex"){
+    const ask = document.createElement("p"); ask.className = "ask";
+    ask.appendChild(document.createTextNode(
+      "Quale numero " + n.v + " rende " + (game.meTrue ? "vera" : "falsa") + " la frase "));
+    const sf = document.createElement("span"); sf.className = "ff";
+    sf.textContent = show(n.a, game.env, true);
+    ask.appendChild(sf);
+    ask.appendChild(document.createTextNode(" ?"));
+    d.appendChild(ask);
+
+    const ch = document.createElement("div"); ch.className = "choices";
+    const inp = document.createElement("input");
+    inp.className = "num"; inp.type = "text"; inp.inputMode = "numeric";
+    inp.setAttribute("aria-label", "numero per " + n.v);
+    inp.placeholder = n.v + " = ?";
+    const err = document.createElement("p"); err.className = "numerr";
+    const go = () => {
+      const raw = inp.value.trim();
+      if(!/^\d+$/.test(raw)){ err.textContent = "Scrivi un numero naturale (0, 1, 2, …)."; return; }
+      const k = parseInt(raw, 10);
+      if(k > MAXNUM){
+        err.textContent = "Per comodità l'app si ferma a " + MAXNUM +
+          ". Il dominio però non ha limiti: è solo la casella a essere piccola.";
+        return;
+      }
+      playerNumber(k);
+    };
+    inp.onkeydown = (e) => { if(e.key === "Enter") go(); };
+    ch.appendChild(inp);
+    const b = document.createElement("button");
+    b.className = "primary"; b.textContent = "Scegli " + n.v;
+    b.onclick = go;
+    ch.appendChild(b);
+    d.appendChild(ch);
+    d.appendChild(err);
+
+    const q = document.createElement("div"); q.className = "quick";
+    [0,1,2,3,4,5,6,7,8,9,10,12,100].forEach(k => {
+      const qb = document.createElement("button");
+      qb.textContent = k;
+      qb.onclick = () => playerNumber(k);
+      q.appendChild(qb);
+    });
+    d.appendChild(q);
+    setTimeout(() => inp.focus(), 0);
+  } else {
+    const now = document.createElement("p"); now.className = "now";
+    now.textContent = show(n, game.env, true);
+    d.appendChild(now);
+
+    const ask = document.createElement("p"); ask.className = "ask";
+    if(n.t === "and")      ask.textContent = "Quale metà attacchi?";
+    else if(n.t === "or")  ask.textContent = "Quale delle due difendi?";
+    else if(n.t === "imp") ask.textContent = "Come difendi l'implicazione?";
+    d.appendChild(ask);
+
+    const ms = movesFor(n);
+    const ch = document.createElement("div"); ch.className = "choices";
+    ms.forEach((m, i) => {
+      const b = document.createElement("button");
+      b.appendChild(document.createTextNode(m.label));
+      if(m.detail){
+        const s = document.createElement("span");
+        s.className = "d"; s.textContent = "  " + m.detail;
+        b.appendChild(s);
+      }
+      b.onclick = () => playerMove(i);
+      ch.appendChild(b);
+    });
+    d.appendChild(ch);
+  }
+  stage.appendChild(d);
+  drawLog(logbox);
+}
+
+function drawLog(box){
+  if(!game || !game.log.length) return;
+  const h = document.createElement("h2");
+  h.textContent = "Come siamo arrivati qui";
+  h.style.marginTop = "6px";
+  box.appendChild(h);
+  const ol = document.createElement("ol"); ol.className = "log";
+  game.log.forEach(e => {
+    const li = document.createElement("li");
+    if(e.who === "me") li.className = "me";
+    li.appendChild(document.createTextNode(e.text));
+    if(e.f){
+      const s = document.createElement("span"); s.className = "ff"; s.textContent = e.f;
+      li.appendChild(s);
+      li.appendChild(document.createTextNode("."));
+    }
+    ol.appendChild(li);
+  });
+  box.appendChild(ol);
+}
+
+/* ============================================================
+   11. SEGNATURA E AVVIO
+   ============================================================ */
+
+function drawSignature(){
+  const box = document.getElementById("sigbody");
+  const mk = (title, rows) => {
+    const t = document.createElement("table"); t.className = "sig";
+    const tr = document.createElement("tr");
+    const th = document.createElement("th"); th.textContent = title; th.colSpan = 2;
+    tr.appendChild(th); t.appendChild(tr);
+    rows.forEach(([a,b]) => {
+      const r = document.createElement("tr");
+      const c1 = document.createElement("td"); c1.textContent = a;
+      const c2 = document.createElement("td"); c2.textContent = b;
+      r.appendChild(c1); r.appendChild(c2); t.appendChild(r);
+    });
+    box.appendChild(t);
+  };
+
+  mk("Numeri e operazioni", [
+    ["0, 1, 2, 3, …", "i numeri naturali; si scrivono direttamente"],
+    ["x + y", "somma"],
+    ["x · y", "prodotto (si può scrivere anche *)"],
+    ["(x + 1) · 2", "le parentesi funzionano come in aritmetica"]
+  ]);
+  mk("Confronti", Object.keys(RELS).map(k => [k, RELS[k].d]));
+  mk("Predicati", Object.keys(PREDS).map(k => {
+    const s = PREDS[k];
+    return [k + "(" + (s.n===1 ? "x" : "x, y") + ")", s.d + "  —  cioè  " + s.def];
+  }));
+  mk("Logica", [
+    ["¬  ~  !", "negazione"],
+    ["∧  &  /\\", "congiunzione"],
+    ["∨  |  \\/", "disgiunzione"],
+    ["→  ->  =>", "implicazione"],
+    ["↔  <->  <=>", "doppia implicazione"],
+    ["∀  @", "per ogni"],
+    ["∃  #", "esiste"],
+    ["⊥", "il falso"]
+  ]);
+
+  const p = document.createElement("p"); p.className = "signote";
+  p.textContent = "I numerali sono abbreviazioni: 3 sta per 1 + 1 + 1. " +
+    "Allo stesso modo Pari, Dispari, Primo e Divide non sono segni nuovi del linguaggio, " +
+    "ma abbreviazioni delle formule scritte qui accanto. " +
+    "Per comodità l'app li calcola direttamente.";
+  box.appendChild(p);
+}
+
+function setMode(g){
+  document.getElementById("viewExplore").className = g ? "hidden" : "";
+  document.getElementById("viewGame").className    = g ? "" : "hidden";
+  document.getElementById("mExplore").setAttribute("aria-pressed", g ? "false" : "true");
+  document.getElementById("mGame").setAttribute("aria-pressed", g ? "true" : "false");
+  if(g) drawGame(); else drawLine("eline", {});
+}
+
+function init(){
+  const keys = document.getElementById("keys");
+  ["∀","∃","¬","∧","∨","→","↔","≤","≥","·","x","y","z","(",")"].forEach(s => {
+    const b = document.createElement("button");
+    b.textContent = s;
+    b.onclick = () => {
+      const inp = document.getElementById("src");
+      const a = inp.selectionStart, z = inp.selectionEnd;
+      inp.value = inp.value.slice(0,a) + s + inp.value.slice(z);
+      inp.selectionStart = inp.selectionEnd = a + s.length;
+      inp.focus(); drawEcho();
+    };
+    keys.appendChild(b);
+  });
+
+  const pres = document.getElementById("presets");
+  Object.keys(PRESETS).forEach(name => {
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.onclick = () => loadPreset(name);
+    pres.appendChild(b);
+  });
+
+  document.getElementById("src").oninput = drawEcho;
+  document.getElementById("src").onkeydown = (e) => {
+    if(e.key === "Enter") document.getElementById("add").click();
+  };
+  document.getElementById("add").onclick = () => {
+    const s = document.getElementById("src").value.trim();
+    if(!s) return;
+    formulas.push({src:s, open:false});
+    document.getElementById("src").value = "";
+    drawEcho(); drawFormulas();
+  };
+  document.getElementById("clear").onclick = () => { formulas = []; drawFormulas(); };
+  document.getElementById("mExplore").onclick = () => setMode(false);
+  document.getElementById("mGame").onclick = () => setMode(true);
+  document.getElementById("gTrain").onclick = () => setRunMode(false);
+  document.getElementById("gRun").onclick = () => setRunMode(true);
+
+  formulas = [
+    {src:"∀x ∃y (x < y)", open:false},
+    {src:"∃y ∀x (x ≤ y)", open:false}
+  ];
+  drawSignature();
+  drawFormulas();
+  drawLine("eline", {});
+  drawEcho();
+}
+
+init();
+</script>
+</body>
+</html>
