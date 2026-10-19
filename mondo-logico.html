@@ -103,6 +103,15 @@
   .claim{font-family:var(--serif);font-size:22px;line-height:1.35;margin:0 0 4px;
          word-wrap:break-word}
   .teaches{font-size:13.5px;color:var(--ink-soft);margin:0 0 16px}
+  .teaches:empty{display:none}
+  .modes.small{margin:0 0 10px}
+  .modes.small button{padding:5px 12px;font-size:13px}
+  .runline{font-size:13px;color:var(--ink-soft);margin:0 0 12px}
+  .hintline{font-family:var(--serif);font-size:16px;margin:0 0 14px;
+            padding-left:12px;border-left:2px solid var(--rule)}
+  .hintline:empty{display:none}
+  #ghintrow{margin:0 0 14px}
+  #ghintrow:empty{display:none}
   .teaches strong{color:var(--ink);font-weight:600}
 
   .stage{border:1px solid var(--rule);background:var(--bg);padding:14px;margin-bottom:14px}
@@ -210,6 +219,11 @@
       </div>
       <div class="panel">
         <h2>Livelli</h2>
+        <div class="modes small" role="group" aria-label="Modo di gioco">
+          <button id="gTrain" aria-pressed="true">Allenamento</button>
+          <button id="gRun" aria-pressed="false">Corsa</button>
+        </div>
+        <p class="runline" id="grunline"></p>
         <div class="levels" id="levels"></div>
       </div>
     </div>
@@ -219,6 +233,8 @@
         <h2 id="gtitle">Livello</h2>
         <p class="claim" id="gclaim"></p>
         <p class="teaches" id="gteaches"></p>
+        <div class="rowbtns" id="ghintrow"></div>
+        <p class="hintline" id="ghinttext"></p>
         <div id="gstage"></div>
         <div id="gafter"></div>
         <div id="glogbox"></div>
@@ -679,7 +695,7 @@ function applyMove(m, byMe){
     game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
     game.node = n.a;
     game.log.push({who, text: actor + " difend" + (byMe?"i":"e") + " " + role +
-      " e lancia la sfida " + n.v + " = " + objLabel(m.i) + " (" + descr(world[m.i]) + ")."});
+      " e lanci" + (byMe?"":"a") + " la sfida " + n.v + " = " + objLabel(m.i) + " (" + descr(world[m.i]) + ")."});
   } else if(n.t === "ex"){
     game.env = Object.assign({}, game.env); game.env[n.v] = m.i;
     game.node = n.a;
@@ -820,12 +836,53 @@ const LEVELS = [
     teaches:"«Esiste un blocco isolato». Un testimone, poi una sfida per ogni altro blocco, e nel mezzo un'implicazione con la negazione: tutti i meccanismi insieme." }
 ];
 
+const HINTS = [
+  "a è un quadrato.",
+  "b è blu ed è piccolo.",
+  "C'è un triangolo.",
+  "Tutti i blocchi sono cerchi.",
+  "C'è un blocco che è un cerchio oppure è verde.",
+  "Non c'è nessun blocco blu e piccolo.",
+  "Tutti i quadrati sono rossi.",
+  "Tutti i blocchi rossi sono grandi.",
+  "C'è un triangolo rosso.",
+  "C'è un blocco che sta a sinistra di un blocco più grande di lui.",
+  "Ogni blocco ha qualche blocco alla sua sinistra.",
+  "C'è un blocco che sta a sinistra di tutti gli altri.",
+  "I blocchi blu sono esattamente i cerchi.",
+  "b sta in mezzo fra a e c.",
+  "Fra ogni cerchio e b c'è qualche blocco.",
+  "Ogni quadrato ha lo stesso colore di b.",
+  "Fra due blocchi distinti della stessa forma c'è sempre un altro blocco.",
+  "b sta in mezzo fra due blocchi di forma diversa.",
+  "Se un blocco è più grande di un altro, i due hanno forme diverse.",
+  "C'è un quadrato che nessun altro quadrato supera in grandezza.",
+  "Ogni blocco ha un altro blocco della sua stessa forma.",
+  "Due blocchi dello stesso colore hanno sempre la stessa dimensione.",
+  "C'è un blocco che non confina con nessun altro."
+];
+LEVELS.forEach((L, i) => { L.hint = HINTS[i]; });
+
 let cleared = {};
+
+const HINTS_PER_RUN = 3;
+let runMode   = false;   // false = allenamento, true = corsa
+let hintsLeft = HINTS_PER_RUN;
+let runOver   = false;
+let hintShown = false;
 
 function loadLevel(i){
   world = W[LEVELS[i].world].blocks.map(b => Object.assign({}, b));
   game = {lvl:i, pending:true};
+  hintShown = false;
   drawGame();
+}
+
+function setRunMode(on){
+  runMode = on;
+  runOver = false;
+  hintsLeft = HINTS_PER_RUN;
+  loadLevel(on ? 0 : (game && game.lvl !== undefined ? game.lvl : 0));
 }
 
 /* ============================================================
@@ -883,9 +940,11 @@ function drawBoard(svgId, interactive){
         width:CELL-4, height:CELL-4, fill:"none",
         stroke:"var(--ink)", "stroke-width":2, "stroke-dasharray":"4 3"}));
 
+    const ly = blk.shape === "triangolo" ? cy + rad*0.3 : cy;
     const lab = el("text", {
-      x: PAD+(blk.col-1)*CELL+CELL-6, y: PAD+(blk.row-1)*CELL+16,
-      "text-anchor":"end", "font-size":13, "font-family":"var(--serif)", fill:"var(--ink)"});
+      x: cx, y: ly, "text-anchor":"middle", "dominant-baseline":"central",
+      "font-size": blk.size === "piccolo" ? 12 : 15, "font-weight":"bold",
+      "font-family":"var(--sans)", fill:"#fff", "pointer-events":"none"});
     lab.textContent = objLabel(i);
     g.appendChild(lab);
 
@@ -1092,14 +1151,62 @@ function drawFormulas(){
 function drawLevels(){
   const box = document.getElementById("levels");
   box.textContent = "";
+  document.getElementById("gTrain").setAttribute("aria-pressed", runMode ? "false" : "true");
+  document.getElementById("gRun").setAttribute("aria-pressed", runMode ? "true" : "false");
+
+  const line = document.getElementById("grunline");
+  line.textContent = "";
+  const cur = game ? game.lvl : 0;
+  if(runMode){
+    line.appendChild(document.createTextNode(
+      runOver
+        ? "Corsa finita al livello " + (cur+1) + " di " + LEVELS.length + "."
+        : "Livello " + (cur+1) + " di " + LEVELS.length +
+          " · suggerimenti rimasti: " + hintsLeft));
+    const r = document.createElement("button");
+    r.textContent = runOver ? "Ricomincia" : "Ricomincia da capo";
+    r.style.marginLeft = "8px";
+    r.addEventListener("click", () => setRunMode(true));
+    line.appendChild(r);
+  } else {
+    line.appendChild(document.createTextNode(
+      "Livelli liberi, tentativi illimitati, suggerimento sempre disponibile."));
+  }
+
   LEVELS.forEach((L,i) => {
     const b = document.createElement("button");
     b.textContent = (i+1);
     if(cleared[i]) b.className = "done";
-    b.setAttribute("aria-pressed", game && game.lvl === i ? "true" : "false");
+    b.setAttribute("aria-pressed", i === cur ? "true" : "false");
+    if(runMode) b.disabled = true;
     b.addEventListener("click", () => loadLevel(i));
     box.appendChild(b);
   });
+}
+
+function drawHint(){
+  const row  = document.getElementById("ghintrow");
+  const text = document.getElementById("ghinttext");
+  row.textContent = ""; text.textContent = "";
+  if(runOver) return;
+  if(hintShown){ text.textContent = LEVELS[game.lvl].hint; return; }
+
+  const b = document.createElement("button");
+  if(runMode){
+    b.textContent = "Suggerimento (ne restano " + hintsLeft + ")";
+    b.disabled = hintsLeft === 0;
+  } else {
+    b.textContent = "Suggerimento";
+  }
+  b.addEventListener("click", () => {
+    if(runMode){
+      if(hintsLeft === 0) return;
+      hintsLeft--;
+    }
+    hintShown = true;
+    drawGame();
+  });
+  row.appendChild(b);
 }
 
 function drawGame(){
@@ -1113,12 +1220,33 @@ function drawGame(){
     "Livello " + (game.lvl+1) + " di " + LEVELS.length +
     " — " + W[L.world].label + (isNew ? " (mondo nuovo)" : "");
   document.getElementById("gclaim").textContent = show(parse(L.formula), null, true);
-  document.getElementById("gteaches").innerHTML = L.teaches;
+  document.getElementById("gteaches").innerHTML = runMode ? "" : L.teaches;
+  drawHint();
 
   const stage = document.getElementById("gstage");
   const after = document.getElementById("gafter");
   const logbox = document.getElementById("glogbox");
   stage.textContent = ""; after.textContent = ""; logbox.textContent = "";
+
+  /* --- corsa interrotta --- */
+  if(runMode && runOver){
+    const o = document.createElement("div"); o.className = "outcome lose";
+    const h = document.createElement("h3"); h.textContent = "Corsa finita.";
+    o.appendChild(h);
+    const p = document.createElement("p");
+    p.textContent = "Sei arrivato al livello " + (game.lvl+1) + " di " + LEVELS.length + ".";
+    o.appendChild(p);
+    if(game.leaf){
+      const p1 = document.createElement("p");
+      p1.textContent = "Si è arrivati a " + game.leaf.txt + ", che nel disegno è " +
+        (game.leaf.actual ? "vera" : "falsa") + ". Tu difendevi il " +
+        (game.meTrue ? "vero" : "falso") + ".";
+      o.appendChild(p1);
+    }
+    after.appendChild(o);
+    drawLog(logbox);
+    return;
+  }
 
   /* --- dichiarazione iniziale --- */
   if(game.pending){
@@ -1141,6 +1269,11 @@ function drawGame(){
   /* --- partita finita --- */
   if(game.over){
     if(game.won) cleared[game.lvl] = true;
+    if(runMode && !game.won){
+      runOver = true;
+      drawGame();
+      return;
+    }
     const o = document.createElement("div");
     o.className = "outcome " + (game.won ? "win" : "lose");
     const h = document.createElement("h3");
@@ -1162,10 +1295,18 @@ function drawGame(){
     after.appendChild(o);
 
     const row = document.createElement("div"); row.className = "rowbtns";
-    const again = document.createElement("button");
-    again.textContent = "Rigioca questo livello";
-    again.addEventListener("click", () => loadLevel(game.lvl));
-    row.appendChild(again);
+    if(!runMode){
+      const again = document.createElement("button");
+      again.textContent = "Rigioca questo livello";
+      again.addEventListener("click", () => loadLevel(game.lvl));
+      row.appendChild(again);
+    }
+    if(runMode && game.lvl + 1 === LEVELS.length){
+      const p3 = document.createElement("p");
+      p3.className = "muted2";
+      p3.textContent = "Corsa completata: " + LEVELS.length + " livelli di fila.";
+      o.appendChild(p3);
+    }
     if(game.lvl + 1 < LEVELS.length){
       const nxt = document.createElement("button");
       nxt.className = "primary";
@@ -1354,6 +1495,8 @@ function setMode(which){
 
 document.getElementById("mExplore").addEventListener("click", () => setMode("explore"));
 document.getElementById("mGame").addEventListener("click", () => setMode("game"));
+document.getElementById("gTrain").addEventListener("click", () => setRunMode(false));
+document.getElementById("gRun").addEventListener("click", () => setRunMode(true));
 
 document.getElementById("addBlock").addEventListener("click", () => {
   const cell = firstFreeCell();
