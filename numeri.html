@@ -507,6 +507,9 @@ function spread(env, base, around){
     const v = env[k];
     for(let d = -3; d <= around; d++) if(v + d >= 0) s.add(v + d);
     if(v * 2 <= MAXNUM * 4) s.add(v * 2);
+    s.add(Math.floor(v / 2));                       // metà: serve a ∃y (x = y + y …)
+    for(let d = 1; d * d <= v; d++)                 // divisori: servono a Divide
+      if(v % d === 0){ s.add(d); s.add(v / d); }
   }
   return Array.from(s).sort((a,b) => a - b);
 }
@@ -924,7 +927,7 @@ function drawEcho(){
   const echo = document.getElementById("echo");
   const s = document.getElementById("src").value.trim();
   if(!s){ echo.textContent = ""; echo.className = "echo"; return; }
-  try{ echo.textContent = show(parse(s), null, false); echo.className = "echo"; }
+  try{ echo.textContent = show(parse(s), null, true); echo.className = "echo"; }
   catch(e){ echo.textContent = e.message; echo.className = "echo err"; }
 }
 
